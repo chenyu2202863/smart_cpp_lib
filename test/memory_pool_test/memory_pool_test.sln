@@ -1,0 +1,20 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 10.00
+# Visual Studio 2008
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "memory_pool_test", "memory_pool_test\memory_pool_test.vcproj", "{DBB2CA6A-4433-43ED-9CF4-3950CEBAE89F}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Win32 = Debug|Win32
+		Release|Win32 = Release|Win32
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{DBB2CA6A-4433-43ED-9CF4-3950CEBAE89F}.Debug|Win32.ActiveCfg = Debug|Win32
+		{DBB2CA6A-4433-43ED-9CF4-3950CEBAE89F}.Debug|Win32.Build.0 = Debug|Win32
+		{DBB2CA6A-4433-43ED-9CF4-3950CEBAE89F}.Release|Win32.ActiveCfg = Release|Win32
+		{DBB2CA6A-4433-43ED-9CF4-3950CEBAE89F}.Release|Win32.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
