@@ -4,11 +4,10 @@
 
 
 #include <vector>
+#include <atomic>
 
 #include "thread.hpp"
 #include "../task_adaptor.hpp"
-#include "../../../extend_stl/atomic.hpp"
-
 
 namespace multi_thread
 {
@@ -47,7 +46,7 @@ namespace multi_thread
 				size_ctrl_type sizeCtl_;							// 线程数策略
 				work_threads_type work_threads_;					// 线程组
 			
-				stdex::atomic<size_t>	active_num_;
+				std::atomic<size_t>	active_num_;
 
 
 			public:

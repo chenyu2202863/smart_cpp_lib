@@ -10,7 +10,7 @@ namespace async
 	{
 
 		// forward declare 
-		typedef std::function<void(u_long, u_long, FILE_NOTIFY_INFORMATION *)> file_change_callback_type;
+		typedef std::function<void(u_long, error_code, FILE_NOTIFY_INFORMATION *)> file_change_callback_type;
 
 		struct file_change_callback;
 
@@ -57,7 +57,7 @@ namespace async
 			virtual ~file_change_callback()
 			{}
 
-			virtual void invoke(async_callback_base *p, u_long size, u_long error)
+			virtual void invoke(async_callback_base *p, error_code error, u_long size)
 			{
 				FILE_NOTIFY_INFORMATION *notifyInfo = reinterpret_cast<FILE_NOTIFY_INFORMATION *>(&buffer_);
 

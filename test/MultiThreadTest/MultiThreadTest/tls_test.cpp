@@ -2,7 +2,8 @@
 
 #include <type_traits>
 #include "multi_thread/tls.hpp"
-
+#include <thread>
+#include <list>
 
 namespace tut
 {
@@ -45,4 +46,64 @@ namespace tut
 		ensure("tls contain", multi_thread::call_stack_t<T>::contains(this));
 	}
 
+
+	template <>
+	template <>
+	void object::test<3>()
+	{
+		set_test_name("tls memory");
+
+		struct custom
+		{
+			int n_;
+			custom(int n)
+				: n_(n)
+			{}
+		};
+		struct pool
+		{
+			std::list<custom *> pool_;
+
+			pool()
+			{
+				pool_.push_back(new custom(1));
+				pool_.push_back(new custom(2));
+				pool_.push_back(new custom(3));
+				pool_.push_back(new custom(4));
+				pool_.push_back(new custom(5));
+			}
+
+			custom *alloc()
+			{
+				custom *p = pool_.front();
+				pool_.pop_front();
+
+				return p;
+			}
+
+			void dealloc(custom *p)
+			{
+				pool_.push_front(p);
+			}
+
+			static pool &instance()
+			{
+				static multi_thread::tls_ptr_t<pool> p;
+				if( !p )
+					p = new pool;
+
+				return *p;
+			}
+		};
+
+		
+		custom *p = pool::instance().alloc();
+		std::thread t1([p]()
+		{
+			pool::instance().dealloc(p);
+		});
+
+		t1.join();
+
+	}
 }

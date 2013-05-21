@@ -277,6 +277,12 @@ namespace unicode
 		return std::move(detail::ret_helper<CharT>(str, code));
 	}
 
+    template < typename CharT >
+    detail::ret_helper<CharT> to(const CharT *str, size_t code = CP_ACP)
+    {
+        return std::move(detail::ret_helper<CharT>(str, code));
+    }
+
 
 	template < typename CharT >
 	inline std::string to_a(const std::basic_string<CharT> &src, size_t code = CP_ACP)

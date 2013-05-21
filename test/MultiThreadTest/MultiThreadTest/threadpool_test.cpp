@@ -37,7 +37,7 @@ namespace tut
 		system("pause");
 		event_.set_event();
 
-		auto active_size = pool.active_size();
+		pool.active_size();
 
 		ensure("empty", pool.empty());
 		pool.shutdown();

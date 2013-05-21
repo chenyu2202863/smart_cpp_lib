@@ -125,24 +125,6 @@ namespace win32
 			return ERROR_SUCCESS == ::RegDeleteValue(key_, name);
 		}
 
-		bool reg_key::read_value(const TCHAR *name, double &out_value)
-		{
-			DWORD type = REG_BINARY;
-
-			double local_value(0);
-			DWORD size = sizeof(local_value);
-			bool result = read_value(name, &local_value, &size, &type);
-			if (result) 
-			{
-				if( (type == REG_BINARY || type == REG_QWORD ) && 
-					size == sizeof(local_value) )
-					out_value = *reinterpret_cast<double *>(&local_value);
-				else
-					result = false;
-			}
-
-			return result;
-		}
 
 		bool reg_key::read_value(const TCHAR* name, std::basic_string<TCHAR> &out_value) const 
 		{
@@ -213,11 +195,6 @@ namespace win32
 				entry = entry_end + 1;
 			}
 			return true;
-		}
-
-		bool reg_key::write_value(const TCHAR *name, double in_value)
-		{
-			return write_value(name, &in_value, sizeof(in_value), REG_BINARY);
 		}
 
 		bool reg_key::write_value(const TCHAR * name, const TCHAR* in_value) 

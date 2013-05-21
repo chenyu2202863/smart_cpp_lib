@@ -1,7 +1,11 @@
 #ifndef __MULTI_THREAD_THREADPOOL_HPP
 #define __MULTI_THREAD_THREADPOOL_HPP
 
+#include <memory>
+
 #pragma warning(disable:4100)	// 消除未引用形参警告
+
+
 
 /*
 配置
@@ -117,7 +121,7 @@ namespace multi_thread
 			virtual void callback(BOOLEAN wait) = 0;
 		};
 
-		typedef std::tr1::shared_ptr<param_base> param_base_ptr;
+		typedef std::shared_ptr<param_base> param_base_ptr;
 
 		template < typename HandlerT >
 		struct thread_param_t

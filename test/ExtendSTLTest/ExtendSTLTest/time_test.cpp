@@ -46,8 +46,8 @@ namespace tut
 	template <>
 	void object::test<3>()
 	{
-		std::time_t now_time = stdex::time::string_2_time(std::string("2012-11-23 11:42:35"), "%Y:%m:%s");
-		std::time_t wnow_time = stdex::time::string_2_time(std::wstring(L"2012-11-23 11:42:35"), L"%Y:%m:%s");
+		std::time_t now_time = stdex::time::string_2_time(std::string("2012-11-23 11:42:35"), "%Y:%M:%S");
+		std::time_t wnow_time = stdex::time::string_2_time(std::wstring(L"2012-11-23 11:42:35"), L"%Y:%M:%S");
 
 		std::wcout << stdex::time::time_2_string<wchar_t>(now_time) << std::endl;
 		std::wcout << stdex::time::time_2_string(now_time, L"%Y-%m-%d") << std::endl;
@@ -127,5 +127,15 @@ namespace tut
 
 		time_t dest = std::chrono::system_clock::to_time_t(now + std::chrono::hours(22));
 		ensure(stdex::time::is_in_time_range(beg, end, dest));
+	}
+
+	template <>
+	template <>
+	void object::test<9>()
+	{
+		std::string now_tmp = stdex::time::time_2_string<char>(stdex::time::now(), "%H:%M:%S");
+		std::time_t now = stdex::time::string_2_time(now_tmp, "%H:%M:%S");
+
+		
 	}
 }

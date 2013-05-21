@@ -2,7 +2,9 @@
 
 #include "extend_stl/allocator/allocators.hpp"
 #include "extend_stl/allocator/container_allocator.hpp"
+#include "extend_stl/allocator/stack_allocator.hpp"
 
+#include <forward_list>
 
 namespace tut
 {
@@ -147,4 +149,51 @@ namespace tut
 		ensure_equals(vec[4], 50);
 	}
 
+
+	template<>template<>
+	void object::test<8>()
+	{
+		set_test_name("stack allocator");
+
+		struct custom_t
+		{
+			int n_;
+			custom_t(int n)
+				: n_(n)
+			{}
+			~custom_t()
+			{
+			}
+		};
+
+		{
+			stdex::allocator::stack_storage<1024> storage;
+			stdex::allocator::stack_allocator_t<custom_t, 1024> alloc(storage);
+			std::vector<custom_t, stdex::allocator::stack_allocator_t<custom_t, 1024>> vec(alloc);
+			vec.emplace_back(10);
+			vec.emplace_back(20);
+			vec.emplace_back(30);
+			vec.emplace_back(40);
+			vec.emplace_back(30);
+			vec.emplace_back(40);
+			vec.emplace_back(30);
+			vec.emplace_back(40);
+			vec.push_back(50);
+		}
+
+
+		std::forward_list<int> n;
+		n.push_front(1);
+		n.push_front(2);
+		n.push_front(3);
+
+		std::forward_list<int> n2;
+		n2.push_front(11);
+		n2.push_front(22);
+		n2.push_front(33);
+
+		auto iter = n2.begin();
+		std::advance(iter, 1);
+		n.splice_after(n.before_begin(), n2, iter, n2.end());
+	}
 }

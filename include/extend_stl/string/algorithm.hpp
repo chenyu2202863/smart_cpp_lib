@@ -21,7 +21,7 @@
 #include <vector>
 #include <cassert>
 #include <cctype>
-#include <cstdint>
+#include <windows.h>
 #include "../../utility/select.hpp"	// for char or wchar_t
 
 /*
@@ -77,7 +77,7 @@ namespace stdex
 				return str_;
 			}
 
-			operator std::uint32_t() const
+			operator size_t() const
 			{
 				std::transform(str_.begin(), str_.end(), str_.begin(), func_);
 				return str_.length();
@@ -110,7 +110,6 @@ namespace stdex
 	template < typename CharT, size_t N >
 	inline void to_upper(CharT (&str)[N])
 	{
-
 		std::transform(str, str + N, str, ::toupper);
 	}
 
@@ -129,12 +128,11 @@ namespace stdex
 		std::transform(str.begin(), str.end(), str.begin(), ::tolower);
 	}
 
-	template < typename CharT >
-	detail::ret_helper_t<CharT, decltype(::tolower)> to_lower(const std::basic_string<CharT> &str)
-	{
-		return detail::ret_helper_t<CharT, decltype(::tolower)>(const_cast<std::basic_string<CharT> &>(str), ::tolower);
-	}
-
+    template < typename CharT >
+    detail::ret_helper_t<CharT, decltype(::tolower)> to_lower(const std::basic_string<CharT> &str)
+    {
+        return detail::ret_helper_t<CharT, decltype(::tolower)>(const_cast<std::basic_string<CharT> &>(str), ::tolower);
+    }
 
 	// 支持字符串数组
 	template < typename CharT, size_t N >
@@ -154,6 +152,11 @@ namespace stdex
 			to_number_helper_t(const std::basic_string<CharT> &str)
 				: is_(str)
 			{}
+
+			~to_number_helper_t()
+			{
+				assert(is_.good() || is_.eof());
+			}
 
 			template < typename T >
 			operator T()
@@ -226,14 +229,16 @@ namespace stdex
 			template < typename CharT >
 			operator std::basic_string<CharT>() const
 			{
-				std::basic_ostringstream<CharT> os_;
+				std::basic_ostringstream<CharT> os;
 				if( prec_ != 0 )
-					os_ << std::setiosflags(std::ios::fixed) << std::setprecision(prec_);
+					os << std::setiosflags(std::ios::fixed) << std::setprecision(prec_);
 				if( is_boolalpha_ )
-					os_ << std::boolalpha;
+					os << std::boolalpha;
 
-				os_ << val_;
-				return os_.str();
+				os << val_;
+
+				assert(os.good() || os.eof());
+				return os.str();
 			}
 		};
 	}
@@ -473,13 +478,15 @@ namespace stdex
 		if( str.empty() )
 			return;
 
-		std::basic_stringstream<CharT> iss(str);
+		std::basic_istringstream<CharT> iss(str);
 		for(std::basic_string<CharT> s; std::getline(iss, s, separator); )
 		{
             ValueType val;
-			std::basic_stringstream<CharT> isss(s);
+			std::basic_istringstream<CharT> isss(s);
 
 			isss >> val;
+
+			assert(isss.good() || isss.eof());
 			seq.push_back(std::move(val));
 		}
 

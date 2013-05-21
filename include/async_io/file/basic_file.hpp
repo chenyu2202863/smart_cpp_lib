@@ -33,6 +33,14 @@ namespace async
 			static const DWORD attribute				= FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OVERLAPPED;
 		};
 
+		struct overlapped_write
+		{
+			static const DWORD access_right				= GENERIC_READ | GENERIC_WRITE;
+			static const DWORD shared_mode				= FILE_SHARE_READ;
+			static const DWORD creation_flag			= CREATE_ALWAYS;
+			static const DWORD attribute				= FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OVERLAPPED;
+		};
+
 		// -------------------------------------------
 		// class basic_file
 

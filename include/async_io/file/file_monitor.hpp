@@ -64,7 +64,7 @@ namespace async
 			void monitor(const HandlerT &handler, bool sub_dir = true)
 			{
 				if( !is_open() )
-					throw std::logic_error("File Path Not Valid");
+					throw iocp::win32_exception("File Path Not Valid");
 
 				typedef detail::file_change_handle_t<HandlerT> FileChangeHandleHook;
 				iocp::file_change_callback_ptr asynResult(iocp::make_async_callback(FileChangeHandleHook(*this, handler)));

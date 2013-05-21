@@ -125,6 +125,21 @@ public:
 			"duration negative or zero");
 		}
 
+		explicit duration(_Rep rep)
+			: _MyRep(rep)
+		{}
+
+		duration &operator=(_Rep rep)
+		{
+			_MyRep = rep;
+			return *this;
+		}
+
+		operator _Rep() const
+		{
+			return _MyRep;
+		}
+
 	_Rep count() const
 		{	// get stored rep
 		return (_MyRep);

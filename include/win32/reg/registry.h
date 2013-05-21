@@ -71,11 +71,8 @@ namespace win32
 			bool delete_value(const TCHAR* name);
 
 			// Getters:
-
 			template < typename T >
 			bool read_value(const TCHAR *name, T &out_value) const;
-
-			bool read_value(const TCHAR *name, double &out_value);
 			
 			// Returns a string value. If |name| is NULL or empty, returns the default
 			// value, if any.
@@ -90,11 +87,8 @@ namespace win32
 			bool read_value(const TCHAR* name, void* data, DWORD *dsize, DWORD *dtype) const;
 
 			// Setters:
-
 			template < typename T >
 			bool write_value(const TCHAR *name, const T &in_val);
-
-			bool write_value(const TCHAR *name, double in_value);
 
 			// Sets a string value.
 			bool write_value(const TCHAR* name, const TCHAR* in_value);
@@ -196,6 +190,40 @@ namespace win32
 			TCHAR name_[MAX_PATH];
 		};
 
+		namespace detail
+		{
+			template < bool, typename T, typename U >
+			struct select_type_t;
+
+			template < typename T, typename U >
+			struct select_type_t<true, T, U>
+			{
+				typedef T type;
+			};
+
+			template < typename T, typename U >
+			struct select_type_t<false, T, U>
+			{
+				typedef U type;
+			};
+
+			template < bool, std::uint32_t L, std::uint32_t R >
+			struct select_value_t;
+
+			template < std::uint32_t L, std::uint32_t R >
+			struct select_value_t<true, L, R>
+			{
+				static const std::uint32_t value = L;
+			};
+
+			template < std::uint32_t L, std::uint32_t R >
+			struct select_value_t<false, L, R>
+			{
+				static const std::uint32_t value = R;
+			};
+		}
+		
+
 
 		template < typename T >
 		bool reg_key::write_value(const TCHAR *name, const T &in_value)
@@ -203,10 +231,9 @@ namespace win32
 			static_assert(std::is_integral<T>::value || std::is_floating_point<T>::value, 
 				"T must be a pod type");
 
-			DWORD in = *reinterpret_cast<const DWORD *>(&in_value);
-			return write_value(name, &in_value, static_cast<DWORD>(sizeof(in)), REG_DWORD);
+			return write_value(name, &in_value, sizeof(in_value), 
+				detail::select_value_t<sizeof(T) < sizeof(DWORD), REG_DWORD, REG_QWORD>::value);
 		}
-
 
 
 		template < typename T >
@@ -215,14 +242,16 @@ namespace win32
 			static_assert(std::is_integral<T>::value || std::is_floating_point<T>::value, 
 				"T must be a pod type");
 
-			DWORD type = REG_DWORD;
+			bool is_big_integrate = sizeof(T) > sizeof(DWORD);
 
-			DWORD local_value(0);
+			DWORD type = is_big_integrate ? REG_QWORD : REG_DWORD;
+
+			typename detail::select_type_t<sizeof(T) < sizeof(DWORD), DWORD, T>::type local_value(0);
 			DWORD size = sizeof(local_value);
 			bool result = read_value(name, &local_value, &size, &type);
 			if (result) 
 			{
-				if( (type == REG_DWORD || type == REG_BINARY || type == REG_QWORD ) && 
+				if( (type == REG_BINARY || type == REG_QWORD || type == REG_DWORD) && 
 					size == sizeof(local_value) )
 					out_value = *reinterpret_cast<T *>(&local_value);
 				else

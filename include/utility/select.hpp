@@ -38,7 +38,7 @@ namespace utility
 	template < typename CharT, typename T, typename U >
 	inline typename selector_t<CharT, T, U>::type &select(T &&t, U &&u)
 	{
-		return selector_t<CharT, T, U>(t, u).t_;
+		return selector_t<CharT, T, U>(std::forward<T>(t), std::forward<U>(u)).t_;
 	}
 
 

@@ -28,7 +28,7 @@ namespace tut
 		char b5 = 'a';
 		char b6[] = "bc";
 		wchar_t b7 = L'c';
-		wchar_t b8[] = L"Yu";
+		wchar_t b8[32] = L"Yu";
 		os << b1;
 		os << b2;
 		os << b3;
@@ -53,9 +53,9 @@ namespace tut
 		long long a3 = 0LL;
 		double a4 = 0.0;
 		char a5 = 0;
-		char a6[1024] = {0};
+		char a6[32] = {0};
 		wchar_t a7 = L'';
-		wchar_t a8[1024] = {0};
+		wchar_t a8[32] = {0};
 
 		std::string a9;
 		std::wstring a10;
@@ -238,13 +238,15 @@ namespace tut
 			lhs.name_ == rhs.name_;
 	}
 
-	serialize::mem_serialize &operator<<(serialize::mem_serialize &os, const CustomType &type)
+	template < typename CharT, typename BufferT >
+	serialize::serialize_t<CharT, BufferT> &operator<<(serialize::serialize_t<CharT, BufferT> &os, const CustomType &type)
 	{
 		os << type.age_ << type.class_ << type.name_;
 		return os;
 	}
 
-	serialize::mem_serialize &operator>>(serialize::mem_serialize &os, CustomType &type)
+	template < typename CharT, typename BufferT >
+	serialize::serialize_t<CharT, BufferT> &operator>>(serialize::serialize_t<CharT, BufferT> &os, CustomType &type)
 	{
 		os >> type.age_ >> type.class_ >> type.name_;
 		return os;
@@ -390,8 +392,8 @@ namespace tut
 		int a1 = 10;
 		long a2 = 10L;
 		char a3 = 'c';
-		char a4[] = "chenyu";
-		wchar_t a5[] = L"chenyu";
+		char a4[1024] = "chenyu";
+		wchar_t a5[1024] = L"chenyu";
 
 		file << a1 << a2 << a3 << a4 << a5;
 
@@ -408,5 +410,44 @@ namespace tut
 		ensure(a3 == b3);
 		ensure(strcmp(a4, b4) == 0);
 		ensure(wcscmp(a5, b5) == 0);
+	}
+
+
+	struct undefine_info
+	{
+		std::string name_;
+		int age_;
+
+		undefine_info()
+			: age_(0)
+		{}
+
+		undefine_info(const std::string &name, int age)
+			: name_(name)
+			, age_(age)
+		{}
+	};
+
+	template<>
+	template<>
+	void object::test<7>()
+	{
+		set_test_name("don't custom struct");
+
+		char buf[1024];
+		undefine_info info("123", 12);
+		serialize::mem_serialize os(buf);
+		//os << info;
+
+		std::map<int, std::vector<undefine_info>> infos;
+		std::vector<undefine_info> tmp;
+		tmp.push_back(undefine_info("baby", 1));
+		tmp.push_back(undefine_info("baby2", 2));
+		infos.insert(std::make_pair(1, tmp));
+
+		//os << infos;
+
+		std::map<int, std::vector<undefine_info>> infos2;
+		//os >> infos2;
 	}
 }

@@ -109,44 +109,17 @@ namespace serialize
 	template < typename CharT, typename OutT, typename T >
 	inline serialize_t<CharT, OutT> &operator<<(serialize_t<CharT, OutT> &os, const T &val)
 	{
-		detail::select_pointer_t<T>::push_dispacth(os, val);
-		return os;
-	}
-
-	template < typename CharT, typename OutT, typename T, size_t N >
-	inline serialize_t<CharT, OutT> &operator<<(serialize_t<CharT, OutT> &os, const T (&val)[N])
-	{
-		detail::select_array_t<T>::push_dispacth(os, val);
-		return os;
-	}
-
-	template < typename CharT, typename OutT, typename StringT >
-	inline serialize_t<CharT, OutT> &operator<<(serialize_t<CharT, OutT> &os, const std::basic_string<StringT> &val)
-	{
-		detail::push_string(os, val);
+		detail::select_traits_t<typename std::remove_const<T>::type>::push(os, val);
 		return os;
 	}
 
 	template < typename CharT, typename OutT, typename T >
 	inline serialize_t<CharT, OutT> &operator>>(serialize_t<CharT, OutT> &os, T &val)
 	{
-		detail::select_pointer_t<T>::pop_dispacth(os, val);
+		detail::select_traits_t<typename std::remove_const<T>::type>::pop(os, val);
 		return os;
 	}
 
-	template < typename CharT, typename OutT, typename T, size_t N >
-	inline serialize_t<CharT, OutT> &operator>>(serialize_t<CharT, OutT> &os, T (&val)[N])
-	{
-		detail::select_array_t<T>::pop_dispacth(os, val);
-		return os;
-	}
-
-	template < typename CharT, typename OutT, typename StringT >
-	inline serialize_t<CharT, OutT> &operator>>(serialize_t<CharT, OutT> &os, std::basic_string<StringT> &val)
-	{
-		detail::pop_string(os, val);
-		return os;
-	}
 }
 
 

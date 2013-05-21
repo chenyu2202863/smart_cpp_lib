@@ -22,6 +22,10 @@ namespace tut
 		std::string dst = stdex::to_upper(val);
 		ensure("to upper", dst == "ASD");
 
+		std::string val2("asd");
+		stdex::to_upper(val2);
+		ensure("to upper", val2 == "ASD");
+
 		std::wstring wval(L"asd");
 		wval = stdex::to_upper(wval);
 		ensure("to upper", wval == std::wstring(L"ASD"));
@@ -66,6 +70,13 @@ namespace tut
 
 		bool val1 = stdex::to_number("false");
 		ensure_equals("to number", false, val1);
+
+		bool val2 = stdex::to_number("true");
+		ensure_equals("to number", true, val2);
+
+		//bool val3 = stdex::to_number("TRUE");
+		//bool val4 = val3;
+		//ensure_equals("to number", true, val3);
 	}
 
 
@@ -112,7 +123,7 @@ namespace tut
 	{
 		set_test_name("split");
 
-		std::string val = "1,2,3,4,5,6,7,8,9";
+		std::string val = "1  1,2,3,4,5,6,7 12,8, 9";
 		std::vector<std::string> vec;
 		stdex::split(vec, val, ',');
 
