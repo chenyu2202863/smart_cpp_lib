@@ -13,6 +13,15 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav</Extensions>
     </Filter>
+    <Filter Include="include">
+      <UniqueIdentifier>{418b6d2a-bfad-41cf-bc25-0e69621229d7}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="include\serialize">
+      <UniqueIdentifier>{3dae3d16-aab0-4c6a-a192-8320e8aad07f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="include\serialize\detail">
+      <UniqueIdentifier>{055e2a7d-0022-4e37-a779-06f095137b57}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="serialize_test.cpp">
@@ -31,6 +40,24 @@
     </ClInclude>
     <ClInclude Include="targetver.h">
       <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\include\serialize\serialize.hpp">
+      <Filter>include\serialize</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\include\serialize\detail\buffer.hpp">
+      <Filter>include\serialize\detail</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\include\serialize\detail\container_dispatch.hpp">
+      <Filter>include\serialize\detail</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\include\serialize\detail\dispatch.hpp">
+      <Filter>include\serialize\detail</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\include\serialize\detail\serialize_in.hpp">
+      <Filter>include\serialize\detail</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\include\serialize\detail\serialize_out.hpp">
+      <Filter>include\serialize\detail</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

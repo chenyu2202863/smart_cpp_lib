@@ -29,6 +29,7 @@ namespace tut
 		char b6[] = "bc";
 		wchar_t b7 = L'c';
 		wchar_t b8[32] = L"Yu";
+
 		os << b1;
 		os << b2;
 		os << b3;
@@ -47,6 +48,13 @@ namespace tut
 		wchar_t *b12 = L"bbb";
 		os << b11 << b12;
 
+		struct pod_type_t
+		{
+			std::uint8_t m;
+		}b13;
+		b13.m = 100;
+		os << b13;
+
 		serialize::mem_serialize in(buf);
 		int a1 = 0;
 		long a2 = 0L;
@@ -54,11 +62,12 @@ namespace tut
 		double a4 = 0.0;
 		char a5 = 0;
 		char a6[32] = {0};
-		wchar_t a7 = L'';
+		wchar_t a7 = L' ';
 		wchar_t a8[32] = {0};
 
 		std::string a9;
 		std::wstring a10;
+		pod_type_t a13;
 
 		in >> a1;
 		in >> a2;
@@ -70,13 +79,14 @@ namespace tut
 		in >> a8;
 		in >> a9;
 		in >> a10;
+		
 
 		char tmp1[4] = {0};
 		wchar_t tmp2[4] = {0};
 		char *a11 = tmp1;
 		wchar_t *a12 = tmp2;
 		in >> a11 >> a12;
-
+		in >> a13;
 
 		ensure(b1 == a1);
 		ensure(b2 == a2);
@@ -135,7 +145,7 @@ namespace tut
 		double a4 = 0.0;
 		char a5 = 0;
 		char a6[1024] = {0};
-		wchar_t a7 = L'';
+		wchar_t a7 = L' ';
 		wchar_t a8[1024] = {0};
 
 		std::string a9;
@@ -238,15 +248,15 @@ namespace tut
 			lhs.name_ == rhs.name_;
 	}
 
-	template < typename CharT, typename BufferT >
-	serialize::serialize_t<CharT, BufferT> &operator<<(serialize::serialize_t<CharT, BufferT> &os, const CustomType &type)
+	template < typename StreamT >
+	StreamT &operator<<(StreamT &os, const CustomType &type)
 	{
 		os << type.age_ << type.class_ << type.name_;
 		return os;
 	}
 
-	template < typename CharT, typename BufferT >
-	serialize::serialize_t<CharT, BufferT> &operator>>(serialize::serialize_t<CharT, BufferT> &os, CustomType &type)
+	template < typename StreamT >
+	StreamT &operator>>(StreamT &os, CustomType &type)
 	{
 		os >> type.age_ >> type.class_ >> type.name_;
 		return os;
