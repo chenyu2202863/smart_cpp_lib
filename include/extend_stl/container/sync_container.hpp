@@ -26,24 +26,6 @@ sync_assoc_container_t
 
 */
 
-namespace std
-{
-	template< typename T >
-	class hash< std::shared_ptr<T> >
-		: public unary_function<std::shared_ptr<T>, size_t>
-	{	// hash functor
-	public:
-		typedef std::shared_ptr<T> _Kty;
-		typedef _Uint32t _Inttype;	// use first (1 or 2)*32 bits
-
-		size_t operator()(_Kty _Keyval) const
-		{	// hash _Keyval to size_t value by pseudorandomizing transform
-			typedef typename _STD _If<sizeof (T *) <= sizeof (_Inttype),
-				_Inttype, _ULonglong>::_Type _Integer;
-			return (hash<_Integer>()((_Integer)_Keyval.get()));
-		}
-	};
-}
 
 namespace stdex
 {

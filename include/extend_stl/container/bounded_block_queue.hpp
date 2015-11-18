@@ -20,7 +20,7 @@ namespace stdex { namespace container {
 		template< typename T, typename A = std::allocator<T> >
 		class bounded_block_queue_t
 		{
-			typedef std::lock_guard<std::mutex> auto_lock;
+			typedef std::unique_lock<std::mutex> auto_lock;
 
 			mutable std::mutex mutex_;
 			std::condition_variable not_empty_;
@@ -43,12 +43,12 @@ namespace stdex { namespace container {
 			bounded_block_queue_t &operator=(const bounded_block_queue_t &);
 
 		public:
-			void put(const T &x, std::chrono::milliseconds time_out = INFINITE)
+			void put(const T &x, std::chrono::milliseconds time_out = std::chrono::milliseconds(INFINITE))
 			{
 				{
 					auto_lock lock(mutex_);
 					while(queue_.size() == max_size_ )
-						not_full_.wait_for(mutex_, time_out);
+						not_full_.wait_for(lock, time_out);
 
 					assert(queue_.size() != max_size_);
 					queue_.push_back(x);
@@ -64,7 +64,7 @@ namespace stdex { namespace container {
 				{
 					auto_lock lock(mutex_);
 					while(queue_.empty())
-						not_empty_.wait(mutex_, std::chrono::milliseconds(INFINITE));
+						not_empty_.wait(lock);
 
 					assert(!queue_.empty());
 					front = queue_.front();
