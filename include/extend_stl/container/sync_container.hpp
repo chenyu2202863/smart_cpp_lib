@@ -206,7 +206,7 @@ namespace stdex
 			void op_if(const Functor &func, const OP1 &op1, const OP2 &op2)
 			{
 				AutoLock lock(mutex_);
-				iterator iter = find_if(func);
+				iterator iter = std::find_if(container_.begin(), container_.end(), func);
 				if( iter != container_.end() )
 					op1(*iter);
 				else

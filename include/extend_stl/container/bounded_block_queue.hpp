@@ -43,12 +43,13 @@ namespace stdex { namespace container {
 			bounded_block_queue_t &operator=(const bounded_block_queue_t &);
 
 		public:
-			void put(const T &x, std::chrono::milliseconds time_out = std::chrono::milliseconds(INFINITE))
+			template < typename U, typename HandlerT >
+			void put_impl(U &&x, HandlerT &&handler)
 			{
 				{
 					auto_lock lock(mutex_);
-					while(queue_.size() == max_size_ )
-						not_full_.wait_for(lock, time_out);
+					while( queue_.size() == max_size_ )
+						handler(lock);
 
 					assert(queue_.size() != max_size_);
 					queue_.push_back(x);
@@ -56,6 +57,25 @@ namespace stdex { namespace container {
 
 				not_empty_.notify_one();
 			}
+
+			template < typename U >
+			void put(U &&x)
+			{
+				put_impl(std::forward<U>(x), [this](auto &lock)
+				{
+					not_full_.wait(lock);
+				});
+			}
+
+			template < typename U >
+			void put(U &&x, std::chrono::milliseconds time_out)
+			{
+				put_impl(std::forward<U>(x), [this, time_out](auto &lock)
+				{
+					not_full_.wait_for(lock, time_out);
+				});
+			}
+
 
 			T get()
 			{

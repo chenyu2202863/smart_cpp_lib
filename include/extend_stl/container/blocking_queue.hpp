@@ -12,9 +12,9 @@
 * 生产者消费者容器
 */
 
-
-#include "../../multi_thread/lock.hpp"
+#include <mutex>
 #include <queue>
+#include <cassert>
 
 /*
 阻塞队列，适用于生产者消费者
@@ -37,10 +37,10 @@ namespace stdex
 		template< typename T, typename A = std::allocator<T> >
 		class blocking_queue_t
 		{
-			typedef multi_thread::critical_section		Mutex;
-			typedef multi_thread::auto_lock_t<Mutex>	AutoLock;
-			typedef multi_thread::semaphore_condition	Condtion;
-			typedef std::deque<T, A>					Container;
+			typedef std::mutex					Mutex;
+			typedef std::unique_lock<Mutex>		AutoLock;
+			typedef std::condition_variable		Condtion;
+			typedef std::deque<T, A>			Container;
 
 			mutable Mutex mutex_;
 			Condtion not_empty_;
@@ -62,9 +62,8 @@ namespace stdex
 				: queue_(allocator)
 			{}
 
-		private:
-			blocking_queue_t(const blocking_queue_t &);
-			blocking_queue_t &operator=(const blocking_queue_t &);
+			blocking_queue_t(const blocking_queue_t &) = delete;
+			blocking_queue_t &operator=(const blocking_queue_t &) = delete;
 
 		public:
 			/**
@@ -75,14 +74,24 @@ namespace stdex
 			* @note <线程安全，可并发多次调用>
 			* @remarks <无>
 			*/
+			void put(T &&x)
+			{
+				{
+					AutoLock lock(mutex_);
+					queue_.emplace_back(std::move(x));
+				}
+
+				not_empty_.notify_one();
+			}
+
 			void put(const T &x)
 			{
 				{
 					AutoLock lock(mutex_);
-					queue_.push_back(x);
+					queue_.emplace_back(x);
 				}
 
-				not_empty_.signal();
+				not_empty_.notify_one();
 			}
 
 			/**
@@ -100,10 +109,10 @@ namespace stdex
 					AutoLock lock(mutex_);
 					while(queue_.empty())
 					{
-						not_empty_.wait(mutex_);
+						not_empty_.wait(lock);
 					}
 					assert(!queue_.empty());
-					front = queue_.front();
+					front = std::move(queue_.front());
 					queue_.pop_front();
 				}
 

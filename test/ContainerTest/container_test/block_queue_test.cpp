@@ -118,7 +118,7 @@ namespace tut
 			while(!productor.is_aborted())
 			{
 				++n;
-				queue.put(n);
+				queue.put(std::move(n));
 				::Sleep(100);
 			}
 
