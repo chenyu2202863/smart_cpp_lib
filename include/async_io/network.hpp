@@ -6,41 +6,71 @@
 #include <functional>
 #include <string>
 #include <chrono>
+#include <list>
+#include <atomic>
 
-#include "service/dispatcher.hpp"
+#include "basic.hpp"
 #include "service/read_write_buffer.hpp"
+#include "service/multi_buffer.hpp"
 #include "network/tcp.hpp"
 #include "timer/timer.hpp"
+#include "../extend_stl/type_traits.hpp"
+#include "../utility/move_wrapper.hpp"
+
 
 
 namespace async { namespace network { 
 
+	class server;
 	class session;
 	typedef std::shared_ptr<session> session_ptr;
 	typedef std::weak_ptr<session> session_weak_ptr;
 
 	typedef std::function<void(const session_ptr &, const std::string &msg)>	error_handler_type;
-	typedef std::function<bool(const session_ptr &, const std::string &ip)>		accept_handler_type;
+	typedef std::function<bool(const session_ptr &, const ip_address &)>		accept_handler_type;
 	typedef std::function<void(const session_ptr &)>							disconnect_handler_type;
 
-	std::string error_msg(std::error_code err);
+
+	std::string error_msg(const std::error_code &err);
 
 	// ----------------------------------
 
 	class session
 		: public std::enable_shared_from_this<session>
 	{
-		service::io_dispatcher_t &io_;
-		tcp::socket sck_;
+		struct holder_t
+		{
+			virtual ~holder_t() {}
+			virtual void *get() = 0;
+		};
 
-		void *data_;
+		template < typename T >
+		struct holder_impl_t
+			: holder_t
+		{
+			T val_;
+
+			holder_impl_t(const T &val)
+				: val_(val)
+			{}
+
+			virtual void *get() override
+			{
+				return &val_;
+			}
+		};
+
+		server &svr_;
+		std::atomic<bool> is_valid_ = true;
+		std::shared_ptr<holder_t> data_;
 
 	public:
+		mutable std::shared_ptr<socket_handle_t> sck_;
 		const error_handler_type &error_handler_;
 		const disconnect_handler_type &disconnect_handler_;
 
 	public:
-		session(service::io_dispatcher_t &io, socket_handle_t &&sck, 
+		session(server &svr, std::shared_ptr<socket_handle_t> &&sck, 
 			const error_handler_type &error_handler, const disconnect_handler_type &disconnect_handler);
 		~session();
 
@@ -49,188 +79,281 @@ namespace async { namespace network {
 		session &operator=(const session &);
 
 	public:
-		const tcp::socket &get() const { return sck_; }
+		bool is_valid() const
+		{ return is_valid_; }
 		std::string get_ip() const;
 
-		template < typename BufferT, typename HandlerT >
-		bool async_read(BufferT &&buffer, HandlerT &&read_handler);
+		socket_handle_t &native_handle()
+		{ return *sck_; }
 
-		template < typename BufferT, typename HandlerT >
-		bool async_write(BufferT &&buffer, HandlerT &&write_handler);
+		template < typename T >
+		bool set_option(const T &v)
+		{
+			return sck_->set_option(v);
+		}
 
-		void additional_data(void *data);
-		void *additional_data() const;
+		template < typename T >
+		bool io_control(T &v)
+		{
+			return sck_->io_control(v);
+		}
 
+		template < typename HandlerT, typename AllocatorT = std::allocator<char> >
+		bool async_read(service::mutable_buffer_t &, HandlerT &&, const AllocatorT &allocator = AllocatorT());
+		template < typename HandlerT, typename AllocatorT = std::allocator<char> >
+		bool async_read_some(service::mutable_buffer_t &, std::uint32_t min_len, HandlerT &&, const AllocatorT &allocator = AllocatorT());
+
+		template < typename HandlerT, typename AllocatorT = std::allocator<char> >
+		bool async_write(const service::const_buffer_t &, HandlerT &&, const AllocatorT &allocator = AllocatorT());
+		template < typename HandlerT, typename AllocatorT, typename ...Args >
+		bool async_write(HandlerT &&, const AllocatorT &, Args &&...);
+
+		template < typename T, typename AlocatorT >
+		void additional_data(const T &t, const AlocatorT &allocator);
+
+		template < typename T >
+		T &additional_data();
+
+		void shutdown();
 		void disconnect();
 
-	private:
 		template < typename HandlerT >
-		void _handle_read(std::error_code error, std::uint32_t size, const HandlerT &read_handler);
+		void _handle_read(const std::error_code &error, std::uint32_t size, const HandlerT &read_handler);
 
 		template < typename HandlerT >
-		void _handle_write(std::error_code error, std::uint32_t size, const HandlerT &write_handler);
+		void _handle_write(const std::error_code &error, std::uint32_t size, const HandlerT &write_handler);
+	
+		template < typename HandlerT >
+		bool _run_impl(HandlerT &&handler, bool is_read_op);
 	};
 
-	template < typename HandlerT >
-	bool async_read(const session_ptr &val, char *buf, std::uint32_t len, HandlerT &&handler)
+	template < typename HandlerT, typename AllocatorT = std::allocator<char> >
+	bool async_read(const session_ptr &val, char *buf, std::uint32_t len, HandlerT &&handler, const AllocatorT &allocator = AllocatorT())
 	{
 		if( !val )
 			return false;
 
-		return val->async_read(std::move(async::service::buffer(buf, len)), std::forward<HandlerT>(handler));
+		return val->async_read(std::move(async::service::buffer(buf, len)), std::forward<HandlerT>(handler), allocator);
 	}
 
-	template < typename HandlerT >
-	bool async_write(const session_ptr &val, const char *buf, std::uint32_t len, HandlerT &&handler)
+	template < typename HandlerT, typename AllocatorT = std::allocator<char> >
+	bool async_write(const session_ptr &val, const char *buf, std::uint32_t len, HandlerT &&handler, const AllocatorT &allocator = AllocatorT())
 	{
 		if( !val )
 			return false;
 
-		return val->async_write(std::move(async::service::buffer(buf, len)), std::forward<HandlerT>(handler));
+		return val->async_write(std::move(async::service::buffer(buf, len)), std::forward<HandlerT>(handler), allocator);
 	}
 
-	template < typename HandlerT >
-	bool async_read(const session_ptr &remote, async::service::mutable_array_buffer_t &&buf, HandlerT &&handler)
+
+	template < typename HandlerT, typename AllocatorT >
+	bool session::async_read(service::mutable_buffer_t &buffer, HandlerT &&read_handler, const AllocatorT &allocator)
 	{
-		if( !remote )
-			return false;
-
-		return remote->async_read(buf, std::forward<HandlerT>(handler));
-	}
-
-	template < typename HandlerT >
-	bool async_write(const session_ptr &remote, async::service::const_array_buffer_t &&buf, HandlerT &&handler)
-	{
-		if( !remote )
-			return false;
-
-		return remote->async_write(buf, std::forward<HandlerT>(handler));
-	}
-
-	// fix MS BUG
-	template < typename HandlerT >
-	struct handler_t
-	{
-		session_ptr session_; 
-		HandlerT handler_;
-		const error_handler_type &error_handler_;
-
-		handler_t(session_ptr &&val, const error_handler_type &error_handler, HandlerT &&handler)
-			: session_(std::move(val))
-			, error_handler_(error_handler)
-			, handler_(std::move(handler))
-		{}
-		handler_t(handler_t &&rhs)
-			: session_(std::move(rhs.session_))
-			, error_handler_(rhs.error_handler_)
-			, handler_(std::move(rhs.handler_))
-		{}
-
-		void operator()(std::error_code error, std::uint32_t size)
+		return _run_impl([&]()
 		{
-			if( error.value() == 0 )	// success
+			auto this_val = shared_from_this();
+			auto handler_val = utility::make_move_obj(std::forward<HandlerT>(read_handler));
+
+			service::async_read(*sck_,
+				buffer,
+				service::transfer_all(),
+				[this_val, handler_val](const std::error_code &err, std::uint32_t len)
+			{
+				this_val->_handle_read(err, len, handler_val.value_);
+			}, allocator);
+		}, true);
+	}
+
+	template < typename HandlerT, typename AllocatorT >
+	bool session::async_read_some(service::mutable_buffer_t &buffer, std::uint32_t min_len, HandlerT && handler, const AllocatorT &allocator)
+	{
+		return _run_impl([&]()
+		{
+			auto this_val = shared_from_this();
+			auto handler_val = utility::make_move_obj(std::forward<HandlerT>(handler));
+
+			sck_->async_read(buffer, 
+				[this_val, handler_val](const std::error_code &err, std::uint32_t len)
+			{
+				this_val->_handle_read(err, len, handler_val.value_);
+			}, allocator);
+		}, true);
+	}
+
+	template < typename HandlerT, typename AllocatorT >
+	bool session::async_write(const service::const_buffer_t &buffer, HandlerT &&write_handler, const AllocatorT &allocator)
+	{
+		if( !is_valid() )
+			return false;
+
+		return _run_impl([&]()
+		{
+			auto this_val = shared_from_this();
+			auto handler_val = utility::make_move_obj(std::forward<HandlerT>(write_handler));
+
+			service::async_write(
+				*sck_, 
+				buffer, 
+				service::transfer_all(), 
+				[this_val, handler_val](const std::error_code &err, std::uint32_t len) 
+			{ 
+				this_val->_handle_write(err, len, handler_val.value_);
+			}, allocator);
+		}, false);
+	}
+
+	template < typename ParamT >
+	struct hook_handler_t
+		: ParamT
+	{
+		session_ptr session_;
+
+		hook_handler_t(session_ptr &&session, ParamT &&param)
+			: session_(std::move(session))
+			, ParamT(std::move(param))
+		{}
+
+		hook_handler_t(hook_handler_t &&rhs)
+			: session_(std::move(rhs.session_))
+			, ParamT(std::move(rhs))
+		{}
+
+		void operator()(const std::error_code &err, std::uint32_t len)
+		{
+			session_->_handle_write(err, len, *static_cast<ParamT *>(this));
+		}
+	};
+
+	template < typename HandlerT, typename AllocatorT, typename ...Args >
+	bool session::async_write(HandlerT &&handler, const AllocatorT &allocator, Args &&...args)
+	{
+		if( !is_valid() )
+			return false;
+
+		auto this_val = shared_from_this();
+		auto param = service::make_param(std::forward<HandlerT>(handler), std::forward<Args>(args)...);
+
+		typedef decltype(param) param_t;
+		hook_handler_t<param_t> hook_handler(std::move(this_val), std::move(param));
+		
+		return _run_impl([&]()
+		{
+			sck_->async_write(std::move(hook_handler), allocator);
+		}, false);
+	}
+
+	template < typename HandlerT >
+	bool session::_run_impl(HandlerT && handler, bool is_read_op)
+	{
+		try
+		{
+			handler();
+			return true;
+		}
+		catch (::exception::exception_base &e)
+		{
+			e.dump();
+
+			if (error_handler_)
+				error_handler_(shared_from_this(), std::string(e.what()));
+
+			if( is_read_op )
+				disconnect();
+
+			return false;
+		}
+		catch (std::exception &e)
+		{
+			if (error_handler_)
+				error_handler_(shared_from_this(), std::string(e.what()));
+
+			if( is_read_op )
+				disconnect();
+
+			return false;
+		}
+	}
+
+	template < typename HandlerT >
+	void session::_handle_read(const std::error_code &error, std::uint32_t size, const HandlerT &read_handler)
+	{
+		try
+		{
+			if( !error )	// success
 			{
 				if( size == 0 )
 				{
 					// disconnect
-					session_->disconnect();
+					disconnect();
 				}
 				else
-					handler_(std::cref(session_), size);
+					read_handler(shared_from_this(), size);
 			}
 			else
 			{
-				if( error_handler_ )
+				if( size != 0 && error_handler_ )
 				{
-					error_handler_(std::cref(session_), std::cref(error_msg(error)));
+					error_handler_(shared_from_this(), error_msg(error));
 				}
-				session_->disconnect();
+
+				disconnect();
 			}
 		}
-	};
-
-	template < typename BufferT, typename HandlerT >
-	bool session::async_read(BufferT &&buffer, HandlerT &&read_handler)
-	{
-		try
+		catch (...)
 		{
-			service::async_read(
-				sck_, 
-				buffer, 
-				service::transfer_all(), 
-				std::move(handler_t<typename std::remove_all_extents<HandlerT>::type>(shared_from_this(), error_handler_, std::forward<HandlerT>(read_handler))));
-
-			// MS BUG!!
-			//std::bind(&session::_handle_read<HandlerT>, shared_from_this(), async::service::_Error, async::service::_Size, std::move(read_handler)));
+			assert(0 && "has an exception in read_handler_");
+			error_handler_(shared_from_this(), "has an exception in read_handler");
 		}
-		catch(exception::exception_base &e)
-		{
-			e.dump();
-
-			if( error_handler_ )
-				error_handler_(shared_from_this(), std::cref(std::string(e.what())));
-
-			disconnect();
-
-			return false;
-		}
-		catch(std::exception &e)
-		{
-			if( error_handler_ )
-				error_handler_(shared_from_this(), std::cref(std::string(e.what())));
-
-			disconnect();
-			return false;
-		}
-
-		return true;
 	}
 
-	template < typename BufferT, typename HandlerT >
-	bool session::async_write(BufferT &&buffer, HandlerT &&write_handler)
+	template < typename HandlerT >
+	void session::_handle_write(const std::error_code &error, std::uint32_t size, const HandlerT &write_handler)
 	{
 		try
 		{
-			service::async_write(
-				sck_, 
-				buffer, 
-				service::transfer_all(), 
-				std::move(handler_t<typename std::remove_all_extents<HandlerT>::type>(shared_from_this(), error_handler_, std::forward<HandlerT>(write_handler))));
-			//std::bind(&session::_handle_write<HandlerT>, shared_from_this(), async::service::_Error, async::service::_Size, std::move(write_handler)));
+			if( error )	// error
+			{
+				if( error_handler_ )
+					error_handler_(shared_from_this(), error_msg(error));
+
+				size = 0;
+			}
+
+			write_handler(shared_from_this(), size);
 		}
-		catch(exception::exception_base &e)
+		catch (...)
 		{
-			e.dump();
-
-			if( error_handler_ )
-				error_handler_(shared_from_this(), std::cref(std::string(e.what())));
-			disconnect();
-
-			return false;
+			assert(0 && "has an exception in write_handler_");
+			error_handler_(shared_from_this(), "has an exception in write_handler_");
 		}
-		catch(std::exception &e)
-		{
-			if( error_handler_ )
-				error_handler_(shared_from_this(), std::cref(std::string(e.what())));
+	}
 
-			disconnect();
-			return false;
-		}
+	template < typename T, typename AlocatorT >
+	void session::additional_data(const T &t, const AlocatorT &allocator)
+	{
+		data_ = std::allocate_shared<holder_impl_t<T>>(allocator, t);
+	}
 
-		return true;
+	template < typename T >
+	T &session::additional_data()
+	{
+		assert(data_ && "data is empty");
+		void *val = data_->get();
+
+		return *static_cast<T *>(val);
 	}
 
 	// ----------------------------------
 
 	class server
 	{
-
+		friend class session;
 	private:	
-		struct impl ;
+		struct impl;
 		std::unique_ptr<impl> impl_;
 
 	public:
-		explicit server(std::uint16_t port);
+		explicit server(std::uint16_t port, std::uint32_t thr_cnt = 0);
 		~server();
 
 	private:
@@ -244,6 +367,8 @@ namespace async { namespace network {
 		void register_error_handler(const error_handler_type &);
 		void register_accept_handler(const accept_handler_type &);
 		void register_disconnect_handler(const disconnect_handler_type &);
+
+		void post(std::function<void(const std::error_code &, std::uint32_t)> &&);
 	};
 
 
@@ -251,9 +376,6 @@ namespace async { namespace network {
 
 	class client
 	{
-	public:
-		enum { DEFAULT_TIME_OUT = 3 };
-
 	public:
 		typedef std::function<void(const std::string &msg)>		error_handler_type;
 		typedef std::function<void(bool)>						connect_handler_type;
@@ -263,16 +385,12 @@ namespace async { namespace network {
 		service::io_dispatcher_t &io_;
 		tcp::socket socket_;
 
-		timer::win_timer_service_t &timer_svr_;
-		timer::timer_handle_ptr timer_;
-
 		client::error_handler_type error_handle_;
 		client::connect_handler_type connect_handle_;
 		client::disconnect_handler_type disconnect_handle_;
 
-
 	public:
-		explicit client(service::io_dispatcher_t &io, timer::win_timer_service_t &timer_svr);
+		explicit client(service::io_dispatcher_t &io);
 		~client();
 
 	private:
@@ -280,53 +398,78 @@ namespace async { namespace network {
 		client &operator=(const client &);
 
 	public:
-		bool start(const std::string &ip, std::uint16_t port, std::chrono::seconds time_out);
+		bool async_start(const std::string &ip, std::uint16_t port);
+		bool start(const std::string &ip, std::uint16_t port);
 		void stop();
 
 		void register_error_handler(const error_handler_type &);
 		void register_connect_handler(const connect_handler_type &);
 		void register_disconnect_handler(const disconnect_handler_type &);
 
+		tcp::socket &native_handle()
+		{ return socket_; }
+
+
+		template < typename T >
+		bool set_option(const T &v)
+		{ return socket_.set_option(v); }
+
+		template < typename T >
+		bool io_control(T &val)
+		{ return socket_.io_control(val); }
+
 	public:
-		template < typename BufferT, typename HandlerT >
-		bool async_send(BufferT &&buf, HandlerT &&handler);
+		template < typename HandlerT, typename AllocatorT = std::allocator<char> >
+		bool async_send(const service::const_buffer_t &, HandlerT &&, const AllocatorT &allocator = AllocatorT());
+		template < typename HandlerT, typename AllocatorT, typename ...Args >
+		typename std::enable_if<stdex::is_callable<HandlerT(std::uint32_t)>::value, bool>::type async_send(HandlerT &&, const AllocatorT &, Args &&...);
 
-		template < typename HandlerT >
-		bool async_recv(char *buf, std::uint32_t len, HandlerT &&handler);
+		template < typename HandlerT, typename AllocatorT = std::allocator<char> >
+		bool async_recv(char *, std::uint32_t, HandlerT &&, const AllocatorT &allocator = AllocatorT());
+		template < typename HandlerT, typename AllocatorT = std::allocator<char> >
+		bool async_read_some(service::mutable_buffer_t &, std::uint32_t min_len, HandlerT &&, const AllocatorT &allocator = AllocatorT());
 
-		std::uint32_t send(const char *buf, std::uint32_t len);
-		std::uint32_t recv(char *buf, std::uint32_t len);
+
+		bool send(const char *buf, std::uint32_t len);
+		bool recv(char *buf, std::uint32_t len);
+		std::uint32_t read_some(char *buf, std::uint32_t len);
 
 		void disconnect();
 
 	private:
-		void _on_connect(std::error_code error);
+		template < typename HandlerT >
+		bool _run_impl(HandlerT && handler);
+
+		void _on_connect(const std::error_code &);
 		
 	};
 
 
 	// fix MS BUG
 	template < typename HandlerT >
-	struct handler_wrapper_t
+	struct cli_handler_wrapper_t
+		: HandlerT
 	{
+		typedef cli_handler_wrapper_t<HandlerT> this_type;
+
 		client &session_; 
-		HandlerT handler_;
 		const client::error_handler_type &error_handler_;
 
-		handler_wrapper_t(client &val, const client::error_handler_type &error_handler, HandlerT &&handler)
-			: session_(val)
+		cli_handler_wrapper_t(client &val, const client::error_handler_type &error_handler, HandlerT &&handler)
+			: HandlerT(std::move(handler))
+			, session_(val)
 			, error_handler_(error_handler)
-			, handler_(std::move(handler))
 		{}
-		handler_wrapper_t(handler_wrapper_t &&rhs)
-			: session_(rhs.session_)
+		cli_handler_wrapper_t(cli_handler_wrapper_t &&rhs)
+			: HandlerT(std::move(rhs))
+			, session_(rhs.session_)
 			, error_handler_(rhs.error_handler_)
-			, handler_(std::move(rhs.handler_))
+			
 		{}
 
-		void operator()(std::error_code error, std::uint32_t size)
+		void operator()(const std::error_code &error, std::uint32_t size)
 		{
-			if( error.value() == 0 )	// success
+			if( !error )	// success
 			{
 				if( size == 0 )
 				{
@@ -334,75 +477,89 @@ namespace async { namespace network {
 					session_.disconnect();
 				}
 				else
-					handler_(size);
+					static_cast<HandlerT *>(this)->operator()(size);
 			}
 			else
 			{
-				if( error_handler_ )
+				if( size != 0 && error_handler_ )
 				{
-					error_handler_(std::cref(error_msg(error)));
+					error_handler_(error_msg(error));
 				}
 				session_.disconnect();
 			}
 		}
 	};
 
-	template < typename BufferT, typename HandlerT >
-	bool client::async_send(BufferT &&buf, HandlerT &&handler)
+	template < typename HandlerT, typename AllocatorT >
+	bool client::async_send(const service::const_buffer_t &buf, HandlerT &&handler, const AllocatorT &allocator)
 	{
-		try
+		return _run_impl([&]()
 		{
-			service::async_write(socket_, std::forward<BufferT>(buf), service::transfer_all(),
-				std::move(handler_wrapper_t<typename std::remove_all_extents<HandlerT>::type>(*this, error_handle_, std::forward<HandlerT>(handler))));
-		}
-		catch(exception::exception_base &e)
-		{
-			e.dump();
+			service::async_write(socket_, buf, service::transfer_all(),
+				std::move(cli_handler_wrapper_t<HandlerT>(*this, error_handle_, std::forward<HandlerT>(handler))), allocator);
+		});
+	}
 
-			if( error_handle_ )
-				error_handle_(std::cref(std::string(e.what())));
-			disconnect();
-			return false;
-		}
-		catch(std::exception &e)
-		{
-			if( error_handle_ )
-				error_handle_(std::cref(std::string(e.what())));
-			disconnect();
-			return false;
-		}
 
-		return true;
+	template < typename HandlerT, typename AllocatorT, typename ...Args >
+	typename std::enable_if<stdex::is_callable<HandlerT(std::uint32_t)>::value, bool>::type client::async_send(HandlerT &&handler, const AllocatorT &allocator, Args &&...args)
+	{
+		return _run_impl([&]()
+		{
+			auto handler_val = service::make_param(std::forward<HandlerT>(handler), std::forward<Args>(args)...);
+			return socket_.async_write(cli_handler_wrapper_t<decltype(handler_val)>(*this, 
+					error_handle_, 
+					std::move(handler_val)), allocator);
+		});
+	}
+
+	template < typename HandlerT, typename AllocatorT  >
+	bool client::async_recv(char *buf, std::uint32_t len, HandlerT &&handler, const AllocatorT &allocator)
+	{
+		return _run_impl([&]()
+		{
+			service::async_read(socket_, async::service::buffer(buf, len), service::transfer_all(), 
+				cli_handler_wrapper_t<HandlerT>(*this, error_handle_, std::forward<HandlerT>(handler)), allocator);
+		});
+	}
+
+	template < typename HandlerT, typename AllocatorT  >
+	bool client::async_read_some(service::mutable_buffer_t &buffer, std::uint32_t min_len, HandlerT && handler, const AllocatorT &allocator)
+	{
+		return _run_impl([&]()
+		{
+			socket_.async_read(buffer, 
+				cli_handler_wrapper_t<HandlerT>(*this, error_handle_, std::forward<HandlerT>(handler)), 
+				allocator);
+		});
 	}
 
 	template < typename HandlerT >
-	bool client::async_recv(char *buf, std::uint32_t len, HandlerT &&handler)
+	bool client::_run_impl(HandlerT && handler)
 	{
 		try
 		{
-			service::async_read(socket_, async::service::buffer(buf, len), service::transfer_all(), 
-				std::move(handler_wrapper_t<typename std::remove_all_extents<HandlerT>::type>(*this, error_handle_, std::forward<HandlerT>(handler))));
+			handler();
+			return true;
 		}
-		catch(exception::exception_base &e)
+		catch(::exception::exception_base &e )
 		{
 			e.dump();
 
 			if( error_handle_ )
-				error_handle_(std::cref(std::string(e.what())));
+				error_handle_(std::string(e.what()));
 
 			disconnect();
 			return false;
 		}
-		catch(std::exception &e)
+		catch( std::exception &e )
 		{
 			if( error_handle_ )
-				error_handle_(std::cref(std::string(e.what())));
+				error_handle_(std::string(e.what()));
 
 			disconnect();
 			return false;
 		}
-
-		return true;
 	}
 }
 }

@@ -8,10 +8,9 @@
 #include <system_error>
 #include <memory>
 #include <cstdint>
+#include <cassert>
 
 #include "../basic.hpp"
-#include "object_factory.hpp"
-
 
 namespace async { namespace service {
 
@@ -25,17 +24,12 @@ namespace async { namespace service {
 
 	struct async_callback_base_t;
 
-	template < typename HandlerT >
-	async_callback_base_t *async_result_allocate(HandlerT &&handler);
-	
 	struct async_result_deallocate_t 
 	{
 		void operator()(async_callback_base_t *p);
 	};
 
 	typedef std::unique_ptr< async_callback_base_t, async_result_deallocate_t > async_callback_base_ptr;
-
-
 
 	//---------------------------------------------------------------------------
 	// struct async_callback_base
@@ -49,7 +43,7 @@ namespace async { namespace service {
 		}
 
 		virtual ~async_callback_base_t() {}
-		virtual void invoke(std::error_code error, std::uint32_t size) = 0;
+		virtual void invoke(const std::error_code &error, std::uint32_t size) = 0;
 		virtual void deallocate() = 0;
 
 	private:
@@ -58,7 +52,7 @@ namespace async { namespace service {
 	};
 
 	template < typename OverlappedT >
-	void call(OverlappedT *overlapped, std::uint32_t size, std::error_code error)
+	void call(OverlappedT *overlapped, std::uint32_t size, const std::error_code &error)
 	{
 		async_callback_base_ptr p(static_cast<async_callback_base_t *>(overlapped));
 
@@ -66,29 +60,34 @@ namespace async { namespace service {
 	}
 
 
-	template < typename HandlerT, typename PoolT >
+	template < typename HandlerT, typename AllocatorT >
 	struct win_async_callback_t
 		: async_callback_base_t
 	{
+		typedef win_async_callback_t<HandlerT, AllocatorT> this_t;
 		HandlerT handler_;
-		PoolT &pool_;
+		AllocatorT allocator_;
 
-		explicit win_async_callback_t(HandlerT &&callback, PoolT &pool)
+		explicit win_async_callback_t(HandlerT &&callback, const AllocatorT &allocator)
 			: handler_(std::move(callback))
-			, pool_(pool)
+			, allocator_(allocator)
 		{}
 
 		virtual ~win_async_callback_t()
 		{}
 
-		virtual void invoke(std::error_code error, std::uint32_t size)
+		virtual void invoke(const std::error_code &error, std::uint32_t size)
 		{
-			handler_(std::cref(error), size);
+			handler_(error, size);
 		}
 
 		virtual void deallocate()
 		{
-			details::object_deallocate(this, pool_);
+			typedef typename AllocatorT::rebind<this_t>::other allocator_t;
+			allocator_t alloc = allocator_;
+
+			alloc.destroy(this);
+			alloc.deallocate(this, 1);
 		}
 	};
 
@@ -98,48 +97,17 @@ namespace async { namespace service {
 		p->deallocate();
 	}
 
-
-	template < typename HandlerT, typename PoolT >
-	async_callback_base_t *async_result_allocate(HandlerT &&handler, PoolT &pool)
+	template < typename HandlerT, typename AllocatorT >
+	win_async_callback_t<HandlerT, AllocatorT> *make_async_callback(HandlerT &&handler, const AllocatorT &allocator)
 	{
-		typedef win_async_callback_t<HandlerT, PoolT> async_callback_t;
+		typedef win_async_callback_t<HandlerT, AllocatorT> async_callback_t;
 
-		return reinterpret_cast<async_callback_base_t *>(
-			details::object_allocate<async_callback_t>(pool, std::forward<HandlerT>(handler), pool));
-	}
+		typedef typename AllocatorT::rebind<async_callback_t>::other allocator_t;
+		allocator_t alloc = allocator;
+		auto p = alloc.allocate(1);
+		alloc.construct(p, std::forward<HandlerT>(handler), allocator);
 
-	struct async_callback_pool_t
-	{
-		typedef std::function<void *(std::uint32_t)> allocate_t;
-		typedef std::function<void(void *, std::uint32_t)> deallocate_t;
-
-		allocate_t allocate_;
-		deallocate_t deallocate_;
-
-		default_pool_t pool_;
-
-		async_callback_pool_t();
-
-		void *allocate(std::uint32_t sz)
-		{
-			return allocate_(sz);
-		}
-
-		void deallocate(void *p, std::uint32_t sz)
-		{
-			return deallocate_(p, sz);
-		}
-
-		void register_handler(const allocate_t &allocate, const deallocate_t &deallocate);
-	};
-
-	async_callback_pool_t &async_callback_pool_instance();
-
-
-	template < typename HandlerT >
-	async_callback_base_t *make_async_callback(HandlerT &&handler)
-	{
-		return async_result_allocate(std::forward<HandlerT>(handler), async_callback_pool_instance());
+		return p;
 	}
 }
 }

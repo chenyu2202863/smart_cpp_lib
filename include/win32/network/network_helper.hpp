@@ -23,7 +23,7 @@
 
 
 #include "../../extend_stl/string/algorithm.hpp"
-#include "../../Unicode/string.hpp"
+#include "../../unicode/string.hpp"
 #include "../../utility/select.hpp"
 
 
@@ -451,7 +451,7 @@ namespace win32
 			int len = sizeof(addr);
 			if (::getpeername(hSocket, reinterpret_cast<PSOCKADDR>(&addr), &len) != 0)
 			{
-				assert(0 && "´íÎóµÄÌ×½Ó×Ö");
+				//assert(0 && "´íÎóµÄÌ×½Ó×Ö");
 			}
 			return addr.sin_addr.S_un.S_addr;
 		}
@@ -469,7 +469,7 @@ namespace win32
 			std::vector<MIB_TCPTABLE> tcp_table;
 			tcp_table.resize(100);
 
-			DWORD table_size = sizeof(MIB_TCPTABLE) * tcp_table.size();
+			DWORD table_size = sizeof(MIB_TCPTABLE) * (DWORD)tcp_table.size();
 			DWORD ret = ::GetTcpTable(&tcp_table[0], &table_size, TRUE);
 
 			if( ret == ERROR_INSUFFICIENT_BUFFER )

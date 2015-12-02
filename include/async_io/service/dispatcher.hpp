@@ -11,7 +11,7 @@ namespace async { namespace service {
 		
 
 		// 获取适合系统的线程数
-		std::uint32_t get_fit_thread_num(size_t perCPU = 1);
+		std::uint32_t get_fit_thread_num(std::uint32_t perCPU = 1);
 
 
 
@@ -23,13 +23,14 @@ namespace async { namespace service {
 		public:
 			typedef std::function<void()>			init_handler_t;
 			typedef std::function<void()>			uninit_handler_t;
+			typedef std::function<void(const std::string &)> error_msg_handler_t;
 
 		private:
 			struct impl;
 			std::unique_ptr<impl> impl_;
 
 		public:
-			explicit io_dispatcher_t(size_t numThreads = get_fit_thread_num(), const init_handler_t &init = nullptr, const uninit_handler_t &unint = nullptr);
+			explicit io_dispatcher_t(const error_msg_handler_t &msg_handler, std::uint32_t numThreads = get_fit_thread_num(), const init_handler_t &init = nullptr, const uninit_handler_t &unint = nullptr);
 			~io_dispatcher_t();
 
 		private:
@@ -40,8 +41,8 @@ namespace async { namespace service {
 			// 绑定设备到完成端口
 			void bind(void *);
 			// 向完成端口投递请求
-			template<typename HandlerT>
-			void post(HandlerT &&handler);
+			template<typename HandlerT, typename AllocatorT = std::allocator<char> >
+			void post(HandlerT &&, const AllocatorT &allocator = AllocatorT());
 			// 停止服务
 			void stop();
 
@@ -50,10 +51,10 @@ namespace async { namespace service {
 		};
 
 
-		template < typename HandlerT >
-		void io_dispatcher_t::post(HandlerT &&handler)
+		template < typename HandlerT, typename AllocatorT >
+		void io_dispatcher_t::post(HandlerT &&handler, const AllocatorT &allocator)
 		{
-			async_callback_base_ptr async(make_async_callback(std::forward<HandlerT>(handler)));
+			async_callback_base_ptr async(make_async_callback(std::forward<HandlerT>(handler), allocator));
 
 			if( _post_impl(async) )
 				async.release();

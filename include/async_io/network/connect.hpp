@@ -20,12 +20,12 @@ namespace async { namespace network { namespace details {
 		{}
 
 	public:
-		void operator()(std::error_code error, std::uint32_t size)
+		void operator()(const std::error_code &error, std::uint32_t size)
 		{
 			// ∏¥÷∆socket Ù–‘
 			remote_.set_option(update_connect_context());
 
-			handler_(error);
+			handler_(!error);
 		}
 	};
 }

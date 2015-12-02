@@ -17,7 +17,7 @@ namespace memory_pool
 	{
 	public:
 		typedef typename lock_traits_t<__IS_MT>::value_type LockType;
-		typedef multi_thread::auto_lock_t<LockType>			AutoLock;
+		typedef std::lock_guard<LockType>					AutoLock;
 		typedef AllocT										AllocType;
 
 		// 多线程共享时，应该让变量具有volatile修饰，而单线程应该让其尽量优化提高速度
@@ -234,7 +234,7 @@ namespace memory_pool
 					end_free_ = 0;
 					start_free_ = reinterpret_cast<char *>(malloc_pool::allocate(szGet));
 					if( NULL == start_free_ )
-						throw std::bad_alloc("FixedMemoryPool");
+						throw std::bad_alloc();
 				}
 
 				// 存储起来提供释放

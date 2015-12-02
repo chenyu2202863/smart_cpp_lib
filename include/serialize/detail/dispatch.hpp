@@ -32,16 +32,14 @@ namespace serialize { namespace detail {
 			std::is_integral<T>::value ||
 			std::is_floating_point<T>::value ||
 			std::is_enum<T>::value ||
-			is_container_t<T>::is_defined_type ||
-			std::is_pod<T>::value;
+			is_container_t<T>::is_defined_type;
 
 		template < typename StreamT, typename U >
 		static void push(StreamT &os, const U &val,
 						 typename std::enable_if <
 						 std::is_integral<U>::value ||
 						 std::is_floating_point<U>::value ||
-						 std::is_enum<U>::value ||
-						 std::is_pod<T>::value
+						 std::is_enum<U>::value
 						 > ::type * = nullptr)
 		{
 			os.push(val);
@@ -60,8 +58,7 @@ namespace serialize { namespace detail {
 						typename std::enable_if <
 						std::is_integral<U>::value ||
 						std::is_floating_point<U>::value ||
-						std::is_enum<U>::value ||
-						std::is_pod<T>::value
+						std::is_enum<U>::value
 						> ::type * = nullptr)
 		{
 			os.pop(val);
@@ -157,6 +154,48 @@ namespace serialize { namespace detail {
 		}
 	};
 
+	template < std::uint32_t N >
+	struct select_traits_t< char[N] >
+	{
+		static const bool is_defined_type = true;
+
+		template < typename StreamT >
+		static void push(StreamT &os, const char (&val)[N])
+		{
+			push_length_impl(os, N);
+			os.push_pointer(val, (std::uint32_t)std::char_traits<char>::length(val));
+		}
+
+		template < typename StreamT >
+		static void pop(StreamT &os, char (&val)[N])
+		{
+			std::uint32_t bufLen = 0;
+			os.pop(bufLen);
+			os.pop_pointer(val, bufLen);
+		}
+	};
+
+	template < std::uint32_t N >
+	struct select_traits_t< wchar_t[N] >
+	{
+		static const bool is_defined_type = true;
+
+		template < typename StreamT >
+		static void push(StreamT &os, const wchar_t(&val)[N])
+		{
+			push_length_impl(os, N);
+			os.push_pointer(val, std::char_traits<wchar_t>::length(val));
+		}
+
+		template < typename StreamT >
+		static void pop(StreamT &os, wchar_t (&val)[N])
+		{
+			std::uint32_t bufLen = 0;
+			os.pop(bufLen);
+			os.pop_pointer(val, bufLen);
+		}
+	};
+
 	template < typename T >
 	struct select_traits_t< T * >
 	{
@@ -175,49 +214,6 @@ namespace serialize { namespace detail {
 		}
 	};
 
-	template < std::uint32_t N >
-	struct select_traits_t< char[N] >
-	{
-		static const bool is_defined_type = true;
-
-		template < typename StreamT >
-		static void push(StreamT &os, const char(&val)[N])
-		{
-			std::uint32_t len = std::char_traits<char>::length(val);
-			os.push(len);
-			os.push_pointer(val, len);
-		}
-
-		template < typename StreamT >
-		static void pop(StreamT &os, char(&val)[N])
-		{
-			std::uint32_t bufLen = 0;
-			os.pop(bufLen);
-			os.pop_pointer(val, bufLen);
-		}
-	};
-
-	template < std::uint32_t N >
-	struct select_traits_t< wchar_t[N] >
-	{
-		static const bool is_defined_type = true;
-
-		template < typename StreamT >
-		static void push(StreamT &os, const wchar_t(&val)[N])
-		{
-			std::uint32_t len = std::char_traits<wchar_t>::length(val);
-			os.push(len);
-			os.push_pointer(val, len);
-		}
-
-		template < typename StreamT >
-		static void pop(StreamT &os, wchar_t(&val)[N])
-		{
-			std::uint32_t bufLen = 0;
-			os.pop(bufLen);
-			os.pop_pointer(val, bufLen);
-		}
-	};
 
 	template < typename T, std::uint32_t N >
 	struct select_traits_t< T[N] >

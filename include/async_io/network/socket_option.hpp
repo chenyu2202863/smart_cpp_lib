@@ -2,6 +2,7 @@
 #define __ASYNC_SOCKET_SOCKET_OPTION_HPP
 
 #include <MSTcpIP.h>
+#include <chrono>
 #include "../service/exception.hpp"
 
 
@@ -70,14 +71,14 @@ namespace async { namespace network {
 		}
 
 		// 获取值大小
-		size_t size() const
+		std::uint32_t size() const
 		{
 			return sizeof(value_);
 		}
 
 
 		// 设置boolean的大小
-		void resize(size_t nSize)
+		void resize(std::uint32_t nSize)
 		{
 			// 在某些平台，getsockopt返回一个sizeof(bool)--1字节。	
 			// 
@@ -102,13 +103,13 @@ namespace async { namespace network {
 	class integer_t
 	{
 	private:
-		int value_;
+		std::uint32_t value_;
 
 	public:
 		integer_t()
 			: value_(0)
 		{}
-		explicit integer_t(int val)
+		explicit integer_t(std::uint32_t val)
 			: value_(val)
 		{}
 		integer_t &operator=(const integer_t &rhs)
@@ -116,7 +117,7 @@ namespace async { namespace network {
 			value_	 = rhs.value_;
 			return *this;
 		}	
-		integer_t &operator=(int val)
+		integer_t &operator=(std::uint32_t val)
 		{
 			value_ = val;
 		}
@@ -150,14 +151,14 @@ namespace async { namespace network {
 		}
 
 		// 获取值大小
-		size_t size() const
+		std::uint32_t size() const
 		{
 			return sizeof(value_);
 		}
 
 
 		// 设置int的大小
-		void resize(size_t nSize)
+		void resize(std::uint32_t nSize)
 		{
 			if( nSize != sizeof(value_) )
 				throw service::network_exception("Integer socket option resize");
@@ -206,7 +207,7 @@ namespace async { namespace network {
 
 		void timeout(int val)
 		{
-			value_.l_linger = static_cast<u_short>(val);
+			value_.l_linger = static_cast<std::uint16_t>(val);
 		}
 		int timeout() const
 		{
@@ -236,13 +237,13 @@ namespace async { namespace network {
 		}
 
 		// 获取值大小
-		size_t size() const
+		std::uint32_t size() const
 		{
 			return sizeof(value_);
 		}
 
 		// 设置int的大小
-		void resize(size_t nSize)
+		void resize(std::uint32_t nSize)
 		{
 			if( nSize != sizeof(value_) )
 				throw service::network_exception("Linger socket option resize");
@@ -281,7 +282,7 @@ namespace async { namespace network {
 			return &enable_;
 		}
 
-		size_t in_buffer_size() const
+		std::uint32_t in_buffer_size() const
 		{
 			return sizeof(enable_);
 		}
@@ -291,7 +292,7 @@ namespace async { namespace network {
 			return 0;
 		}
 
-		size_t out_buffer_size() const
+		std::uint32_t out_buffer_size() const
 		{
 			return 0;
 		}
@@ -304,17 +305,13 @@ namespace async { namespace network {
 		tcp_keepalive outAlive_;
 
 	public:
-		io_control_t(u_long inTime)
+		io_control_t(const std::chrono::seconds &time)
 		{
-			if( inTime != 0 )
-				inAlive_.onoff = 1;
-			else
-				inAlive_.onoff = 0;
+			inAlive_.onoff = 1;
 
-			inAlive_.keepalivetime = inTime * 1000;
-			inAlive_.keepaliveinterval = 2 * 1000;
+			inAlive_.keepalivetime = (u_long)time.count() * 1000;
+			inAlive_.keepaliveinterval = (u_long)time.count() * 1000;
 
-			inAlive_.onoff = 0;
 			outAlive_.keepalivetime = 0;
 			outAlive_.keepaliveinterval = 0;
 		}
@@ -329,7 +326,7 @@ namespace async { namespace network {
 			return &inAlive_;
 		}
 
-		size_t in_buffer_size() const
+		std::uint32_t in_buffer_size() const
 		{
 			return sizeof(inAlive_);
 		}
@@ -339,7 +336,7 @@ namespace async { namespace network {
 			return &outAlive_;
 		}
 
-		size_t out_buffer_size() const
+		std::uint32_t out_buffer_size() const
 		{
 			return sizeof(outAlive_);
 		}
@@ -367,7 +364,7 @@ namespace async { namespace network {
 			return &guid_;
 		}
 
-		size_t in_buffer_size() const
+		std::uint32_t in_buffer_size() const
 		{
 			return sizeof(guid_);
 		}
@@ -377,7 +374,7 @@ namespace async { namespace network {
 			return func_;
 		}
 
-		size_t out_buffer_size() const
+		std::uint32_t out_buffer_size() const
 		{
 			return sizeof(func_);
 		}

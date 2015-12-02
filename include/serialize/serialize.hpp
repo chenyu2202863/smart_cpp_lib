@@ -146,8 +146,6 @@ namespace serialize {
 		return os;
 	}
 
-
-
 }
 
 

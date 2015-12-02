@@ -20,6 +20,7 @@
 #include <sstream>
 #include <string>
 #include <type_traits>
+#include <system_error>
 
 #include "../extend_stl/string/algorithm.hpp"	// for stdex::to_string
 #include "../win32/debug/stack_walker.hpp"		// for win32::debug::dump_stack
@@ -86,13 +87,13 @@ namespace exception
 		, private DumpT
 	{
 	protected:
+		std::error_code code_;
 		std::string msg_;
 
 	public:
-		exception_base_t()
-		{}
-		exception_base_t(const std::string &msg)
+		exception_base_t(std::error_code code, const std::string &msg)
 			: msg_(msg)
+			, code_(code)
 		{}
 		virtual ~exception_base_t()
 		{
@@ -176,6 +177,11 @@ namespace exception
 		virtual const char *what() const
 		{
 			return msg_.c_str();
+		}
+
+		std::error_code code() const
+		{
+			return code_;
 		}
 	};
 

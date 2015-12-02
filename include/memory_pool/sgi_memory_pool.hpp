@@ -1,12 +1,14 @@
 #ifndef __MEMORYPOOL_SGI_HPP
 #define __MEMORYPOOL_SGI_HPP
 
-
-#include "../multi_thread/lock.hpp"
-#include "sgi_malloc_pool.hpp"
 #include <vector>
 #include <algorithm>
 #include <objbase.h>
+#include <thread>
+#include <mutex>
+#include <cassert>
+
+#include "sgi_malloc_pool.hpp"
 
 
 
@@ -27,12 +29,12 @@ namespace memory_pool
 	template<typename T, bool __IS_MT>
 	struct volatile_traits_t
 	{
-		typedef T* volatile 		value_type;
+		typedef T* volatile	value_type;
 	};
 	template<typename T>
 	struct volatile_traits_t<T, false>
 	{
-		typedef T*					value_type;
+		typedef T*			value_type;
 	};
 
 
@@ -40,12 +42,17 @@ namespace memory_pool
 	template<bool __IsMt>
 	struct lock_traits_t
 	{
-		typedef multi_thread::critical_section	value_type;
+		typedef std::mutex	value_type;
 	};
 	template<>
 	struct lock_traits_t<false>
 	{
-		typedef multi_thread::lock_null			value_type;
+		struct lock_null
+		{
+			void lock(){}
+			void unlock(){}
+		};
+		typedef lock_null	value_type;
 	};
 
 
@@ -137,7 +144,7 @@ namespace memory_pool
 	{
 	public:
 		typedef typename lock_traits_t<__IS_MT>::value_type LockType;
-		typedef multi_thread::auto_lock_t<LockType>			AutoLock;
+		typedef std::lock_guard<LockType>					AutoLock;
 
 		// 多线程共享时，应该让变量具有volatile修饰，而单线程应该让其尽量优化提高速度
 		union obj;

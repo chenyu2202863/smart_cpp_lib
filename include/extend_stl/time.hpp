@@ -1,21 +1,16 @@
-#ifndef __EXTEND_STL_STRING_HPP
-#define __EXTEND_STL_STRING_HPP
-
-#include "time/chrono.hpp"
-#include "time/ratio.hpp"
+#ifndef __EXTEND_STL_TIME_HPP
+#define __EXTEND_STL_TIME_HPP
 
 #include <ctime>
+#include <cstdint>
 #include <string>
 #include <sstream>
 #include <iomanip>
+#include <chrono>
+#include <ratio>
 
-namespace stdex
-{
-	namespace time
-	{
-		using namespace std::chrono;
-		using std::ratio;
 
+namespace stdex { namespace time {
 
 		// ---------------------------------------------------
 		// impl
@@ -35,7 +30,7 @@ namespace stdex
 
 		inline std::time_t now()
 		{
-			return system_clock::to_time_t(system_clock::now());
+			return std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
 		}
 
 		template < typename CharT >
@@ -93,7 +88,7 @@ namespace stdex
 		}
 
 		template < typename RepT, typename PeriodT >
-		inline std::time_t duration_2_time(const duration<RepT, PeriodT> &val)
+		inline std::time_t duration_2_time(const std::chrono::duration<RepT, PeriodT> &val)
 		{
 			return stdex::time::system_clock::to_time_t(stdex::time::time_point<stdex::time::system_clock, duration<RepT, PeriodT>>(val));
 		}

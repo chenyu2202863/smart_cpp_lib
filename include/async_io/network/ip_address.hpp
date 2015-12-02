@@ -19,6 +19,9 @@ namespace async { namespace network {
 			std::uint32_t address() const
 			{ return address_; }
 
+			std::string address_str() const 
+			{ return ip_address::parse(*this); }
+
 			bool operator==(const ip_address &ipaddr)
 			{ return address_ == ipaddr.address_; }
 

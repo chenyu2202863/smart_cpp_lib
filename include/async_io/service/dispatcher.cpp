@@ -3,7 +3,7 @@
 #include <vector>
 #include <thread>
 #include <type_traits>
-#include <iostream>
+#include <algorithm>
 
 #include "iocp.hpp"
 #include "exception.hpp"
@@ -11,12 +11,9 @@
 
 namespace async { namespace service {
 
-	size_t get_fit_thread_num(size_t perCPU)
+	std::uint32_t get_fit_thread_num(std::uint32_t perCPU)
 	{
-		SYSTEM_INFO systemInfo = {0};
-		::GetSystemInfo(&systemInfo);
-
-		return perCPU * systemInfo.dwNumberOfProcessors;
+		return perCPU * std::thread::hardware_concurrency();
 	}
 
 	namespace 
@@ -41,9 +38,14 @@ namespace async { namespace service {
 		// 线程退出时结束操作
 		uninit_handler_t uninit_handler_;
 
-		impl(size_t numThreads, const init_handler_t &init, const uninit_handler_t &unint)
-			: init_handler_(init)
+		// 错误消息回调
+		error_msg_handler_t error_handler_;
+
+
+		impl(std::uint32_t numThreads, const error_msg_handler_t &error_handler, const init_handler_t &init, const uninit_handler_t &unint)
+			: error_handler_(error_handler)
 			, uninit_handler_(unint)
+			, init_handler_(init)
 		{
 			if( !iocp_.create(numThreads) )
 				throw win32_exception_t("iocp_.Create()");
@@ -71,7 +73,7 @@ namespace async { namespace service {
 			catch(...)
 			{
 				assert(0 && __FUNCTION__);
-				std::cerr << "Unknown error!" << std::endl;
+				error_handler_("Unknown error!");
 			}
 		}
 
@@ -129,23 +131,24 @@ namespace async { namespace service {
 					{
 						call(entrys[i].lpOverlapped, 
 							entrys[i].dwNumberOfBytesTransferred,
-							std::make_error_code((std::errc::errc)entrys[i].Internal));
+							std::make_error_code((std::errc)entrys[i].Internal));
 					}
 				}
 				catch(const exception::exception_base &e)
 				{
 					e.dump();
-					std::cerr << e.what() << std::endl;
+					error_handler_(e.what());
 					assert(0);
 				}
 				catch(const std::exception &e)
 				{
-					std::cerr << e.what() << std::endl;
+					error_handler_(e.what());
 					assert(0);
 					// Opps!!
 				}
 				catch(...)
 				{
+					error_handler_("io_dispatcher fatal error: unknown msg");
 					assert(0);
 					// Opps!!
 				}
@@ -158,13 +161,13 @@ namespace async { namespace service {
 		}
 	};
 
-	io_dispatcher_t::io_dispatcher_t(size_t numThreads/* = 0*/, const init_handler_t &init/* = 0*/, const uninit_handler_t &unint/* = 0*/)
-		: impl_(new impl(numThreads, init, unint))
+	io_dispatcher_t::io_dispatcher_t(const error_msg_handler_t &msg_handler, std::uint32_t numThreads/* = 0*/, const init_handler_t &init, const uninit_handler_t &unint)
+		: impl_(new impl(numThreads, msg_handler, init, unint))
 	{}
 
 	io_dispatcher_t::~io_dispatcher_t()
 	{
-
+		stop();
 	}
 
 

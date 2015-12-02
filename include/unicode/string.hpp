@@ -178,12 +178,12 @@ namespace unicode
 	template < >
 	struct translate_t<char>
 	{
-		static const std::string &utf(const std::string &src, size_t code = CP_ACP)
+		static const std::string &utf(const std::string &src, std::uint32_t code = CP_ACP)
 		{
 			return src;
 		}
 
-		static std::string utf(const std::wstring &src, size_t code = CP_ACP)
+		static std::string utf(const std::wstring &src, std::uint32_t code = CP_ACP)
 		{
 			std::string tmp(CW2A(src.c_str(), code));
 			return tmp;
@@ -193,12 +193,12 @@ namespace unicode
 	template < >
 	struct translate_t<wchar_t>
 	{
-		static const std::wstring &utf(const std::wstring &src, size_t code = CP_ACP)
+		static const std::wstring &utf(const std::wstring &src, std::uint32_t code = CP_ACP)
 		{
 			return src;
 		}
 
-		static std::wstring utf(const std::string &src, size_t code = CP_ACP)
+		static std::wstring utf(const std::string &src, std::uint32_t code = CP_ACP)
 		{
 			std::wstring tmp(CA2W(src.c_str(), code));
 			return tmp;
@@ -215,7 +215,7 @@ namespace unicode
 		template < >
 		struct select_type<char, char>
 		{
-			static const std::basic_string<char> &convert(const std::basic_string<char> &str, size_t code)
+			static const std::basic_string<char> &convert(const std::basic_string<char> &str, std::uint32_t code)
 			{
 				return str;
 			}
@@ -224,7 +224,7 @@ namespace unicode
 		template < >
 		struct select_type<char, wchar_t>
 		{
-			static std::basic_string<wchar_t> convert(const std::basic_string<char> &str, size_t code)
+			static std::basic_string<wchar_t> convert(const std::basic_string<char> &str, std::uint32_t code)
 			{
 				return std::move(std::basic_string<wchar_t>(CA2W(str.c_str(), code)));
 			}
@@ -233,7 +233,7 @@ namespace unicode
 		template < >
 		struct select_type<wchar_t, char>
 		{
-			static std::basic_string<char> convert(const std::basic_string<wchar_t> &str, size_t code)
+			static std::basic_string<char> convert(const std::basic_string<wchar_t> &str, std::uint32_t code)
 			{
 				return std::move(std::basic_string<char>(CW2A(str.c_str(), code)));
 			}
@@ -242,7 +242,7 @@ namespace unicode
 		template < >
 		struct select_type<wchar_t, wchar_t>
 		{
-			static const std::basic_string<wchar_t> &convert(const std::basic_string<wchar_t> &str, size_t code)
+			static const std::basic_string<wchar_t> &convert(const std::basic_string<wchar_t> &str, std::uint32_t code)
 			{
 				return str;
 			}
@@ -254,7 +254,7 @@ namespace unicode
 			const std::basic_string<CharT> &str_;
 			size_t code_;
 
-			ret_helper(const std::basic_string<CharT> &str, size_t code)
+			ret_helper(const std::basic_string<CharT> &str, std::uint32_t code)
 				: str_(str)
 				, code_(code)
 			{}
@@ -272,50 +272,50 @@ namespace unicode
 	}
 
 	template < typename CharT >
-	detail::ret_helper<CharT> to(const std::basic_string<CharT> &str, size_t code = CP_ACP)
+	detail::ret_helper<CharT> to(const std::basic_string<CharT> &str, std::uint32_t code = CP_ACP)
 	{
 		return std::move(detail::ret_helper<CharT>(str, code));
 	}
 
     template < typename CharT >
-    detail::ret_helper<CharT> to(const CharT *str, size_t code = CP_ACP)
+    detail::ret_helper<CharT> to(const CharT *str, std::uint32_t code = CP_ACP)
     {
         return std::move(detail::ret_helper<CharT>(str, code));
     }
 
 
 	template < typename CharT >
-	inline std::string to_a(const std::basic_string<CharT> &src, size_t code = CP_ACP)
+	inline std::string to_a(const std::basic_string<CharT> &src, std::uint32_t code = CP_ACP)
 	{
 		return translate_t<char>::utf(src, code);
 	}
 
 	template < typename CharT >
-	inline std::wstring to_w(const std::basic_string<CharT> &src, size_t code = CP_ACP)
+	inline std::wstring to_w(const std::basic_string<CharT> &src, std::uint32_t code = CP_ACP)
 	{
 		return translate_t<wchar_t>::utf(src, code);
 	}
 	
 	template < typename CharT >
-	inline string_t to_t(const std::basic_string<CharT> &src, size_t code = CP_ACP)
+	inline string_t to_t(const std::basic_string<CharT> &src, std::uint32_t code = CP_ACP)
 	{
 		return translate_t<string_t::value_type>::utf(src, code);
 	}
 
 	template < typename CharT >
-	inline std::string to_a(const CharT *src, size_t code = CP_ACP)
+	inline std::string to_a(const CharT *src, std::uint32_t code = CP_ACP)
 	{
 		return translate_t<char>::utf(src, code);
 	}
 
 	template < typename CharT >
-	inline std::wstring to_w(const CharT *src, size_t code = CP_ACP)
+	inline std::wstring to_w(const CharT *src, std::uint32_t code = CP_ACP)
 	{
 		return translate_t<wchar_t>::utf(src, code);
 	}
 
 	template < typename CharT >
-	inline string_t to_t(const CharT *src, size_t code = CP_ACP)
+	inline string_t to_t(const CharT *src, std::uint32_t code = CP_ACP)
 	{
 		return translate_t<string_t::value_type>::utf(src, code);
 	}

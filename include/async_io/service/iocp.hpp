@@ -40,7 +40,7 @@ namespace async { namespace service {
 			}
 		}
 
-		bool create(size_t nMaxConcurrency)
+		bool create(std::uint32_t nMaxConcurrency)
 		{
 			iocp_ = ::CreateIoCompletionPort(INVALID_HANDLE_VALUE, 0, 0, nMaxConcurrency);
 

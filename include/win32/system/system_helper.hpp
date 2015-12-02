@@ -21,7 +21,7 @@
 #include <Sddl.h>
 
 
-#include "../../Utility/smart_handle.hpp"
+#include "../../utility/smart_handle.hpp"
 #include "../../utility/shared_handle.hpp"
 #include "../../extend_stl/unicode.hpp"
 #include "../../extend_stl/string/algorithm.hpp"

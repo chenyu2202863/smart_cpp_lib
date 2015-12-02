@@ -8,8 +8,8 @@
 
 #include "../../service/dispatcher.hpp"
 #include "../../../exception/exception_base.hpp"
-
-
+#include "../../../extend_stl/allocator/container_allocator.hpp"
+#include "../../../memory_pool/sgi_memory_pool.hpp"
 
 namespace async {
 
@@ -128,39 +128,6 @@ namespace async {
 			// do nothing
 		}
 
-		namespace detail
-		{
-			struct timer_callback
-			{
-				typedef std::function<void()> callback_type;
-				callback_type handler_;
-
-				timer_callback(callback_type &&handler)
-					: handler_(std::move(handler))
-				{}
-
-				timer_callback &operator=(timer_callback &&rhs)
-				{
-					if( this != &rhs )
-					{
-						handler_ = std::move(rhs.handler_);
-					}
-
-					return *this;
-				}
-
-				void operator()(std::error_code, std::uint32_t)
-				{
-					handler_();
-				}
-
-				operator bool()
-				{
-					return handler_ != nullptr;
-				}
-			};
-		}
-
 
 		// ------------------------------------------------
 		// class TimerService
@@ -170,14 +137,39 @@ namespace async {
 		public:
 			typedef TimerImplT								timer_impl_t;
 			typedef std::shared_ptr<timer_impl_t>			timer_ptr;
-			typedef service::io_dispatcher_t						service_type;
+			typedef service::io_dispatcher_t				service_type;
 
 		private:
-			typedef detail::timer_callback					timer_callback_type;
-			typedef std::map<std::uint32_t, std::pair<timer_ptr, timer_callback_type>> timers_type;
+			struct callback_handler_t
+			{
+				std::function<void()> handler_;
+
+				callback_handler_t(std::function<void()> && handler)
+					: handler_(std::move(handler))
+				{}
+				~callback_handler_t()
+				{}
+
+				callback_handler_t(callback_handler_t && rhs)
+					: handler_(std::move(rhs.handler_))
+				{}
+
+				void operator()(const std::error_code &, std::uint32_t)
+				{
+					handler_();
+				}
+
+				callback_handler_t(const callback_handler_t &rhs)
+					: handler_(rhs.handler_)
+				{}
+
+			private:
+				callback_handler_t &operator=(const callback_handler_t &);
+			};
+			typedef std::map<std::uint32_t, std::pair<timer_ptr, callback_handler_t>> timers_type;
 		
-			typedef std::mutex								Mutex;
-			typedef std::unique_lock<Mutex>					Lock;
+			typedef std::mutex					Mutex;
+			typedef std::unique_lock<Mutex>		Lock;
 
 		private:
 			timers_type timers_;								// Timers
@@ -225,8 +217,8 @@ namespace async {
 					if( timers_.size() > MAXIMUM_WAIT_OBJECTS )
 						throw std::out_of_range("size must less than MAXIMUM_WAIT_OBJECTS");
 					
-					timers_.insert(std::make_pair(id, 
-						std::make_pair(timer, timer_callback_type(handler))));
+					timers_.insert(std::move(std::make_pair(id, 
+						std::make_pair(std::move(timer), std::move(callback_handler_t(std::forward<HandlerT>(handler)))))));
 				}
 
 				// 设置更新事件信号
@@ -242,14 +234,21 @@ namespace async {
 				auto iter = timers_.find(id);
 
 				if( iter != timers_.end() )
+				{
 					iter->second.set_timer(period, delay);
+				}
 			}
 
 			void erase_timer(std::uint32_t id)
 			{
 				{
 					Lock lock(mutex_);
-					timers_.erase(id);
+					auto iter = timers_.find(id);
+					if(iter != timers_.end())
+					{
+						iter->second.first->cancel();
+						timers_.erase(iter);
+					}
 				}
 
 				// 设置更新事件信号
@@ -269,49 +268,42 @@ namespace async {
 			{
 				std::vector<HANDLE> handles;
 
+				typedef memory_pool::sgi_memory_pool_t<true, 256> pool_t;
+				pool_t pool;
+				typedef stdex::allocator::pool_allocator_t<char, pool_t> pool_allocator_t;
+				pool_allocator_t pool_allocator(pool);
+
+				handles.push_back(update_);
+
 				while(true)
 				{
-					// 如果有变化，则重置
-					if( WAIT_OBJECT_0 == ::WaitForSingleObject(update_, 0) )
-					{
-						_Copy(handles);
-					}
-
-					// 防止刚启动时没有timer生成
-					if( handles.size() == 0 )
-					{
-						if( WAIT_IO_COMPLETION == ::WaitForSingleObjectEx(update_, INFINITE, TRUE) )
-							break;
-						else
-						{
-							_Copy(handles);
-						}
-					}
-
-					// 等待Timer到点
-					if( handles.empty() )
-						continue;
-
-					DWORD res = ::WaitForMultipleObjectsEx(handles.size(), &handles[0], FALSE, INFINITE, TRUE);
+					DWORD res = ::WaitForMultipleObjectsEx((std::uint32_t)handles.size(), &handles[0], FALSE, INFINITE, TRUE);
 					if( res == WAIT_IO_COMPLETION )
 						break;
 					else if( res == WAIT_FAILED )
 					{
-						//assert(0);
-						update_.set_event();
+						_Copy(handles);
 						continue;
 					}
-					else if( res + WAIT_OBJECT_0 > timers_.size() )
-						throw ::exception::exception_base(std::make_error_code(std::errc::result_out_of_range), "handle out of range");
+					else if( res == WAIT_OBJECT_0 )
+					{
+						_Copy(handles);
+						continue;
+					}
+					else if( res + WAIT_OBJECT_0 > handles.size() )
+					{
+						_Copy(handles);
+						continue;
+					}
+					
 
 					Lock lock(mutex_);
 					auto iter = timers_.find((std::uint32_t)handles[res]);
 					if( iter != timers_.end() )
 					{
 						auto callback = iter->second.second;
-
 						lock.unlock();
-						io_.post(std::move(callback));
+						io_.post(std::move(callback), pool_allocator);
 					}
 				}
 
@@ -321,6 +313,7 @@ namespace async {
 			void _Copy(std::vector<HANDLE> &handles)
 			{
 				handles.clear();
+				handles.push_back(update_);
 
 				Lock lock(mutex_);
 				for(auto iter = timers_.begin(); iter != timers_.end(); ++iter)

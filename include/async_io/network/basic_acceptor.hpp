@@ -29,14 +29,15 @@ namespace async { namespace network {
 		basic_acceptor_t(dispatcher_type &io, const protocol_type &protocol)
 			: impl_(io, protocol.family(), protocol.type(), protocol.protocol())
 		{}
-		basic_acceptor_t(dispatcher_type &io, const protocol_type &protocol, std::uint16_t port, const ip_address &addr = INADDR_ANY, bool reuseAddr = true)
+		basic_acceptor_t(dispatcher_type &io, const protocol_type &protocol, std::uint16_t port, const ip_address &addr = INADDR_ANY, bool reuseAddr = false)
 			: impl_(io, protocol.family(), protocol.type(), protocol.protocol())
 		{
 			if( reuseAddr )
 				impl_.set_option(reuse_addr(true));
 
 			bind(protocol.family(), port, addr);
-			listen();
+
+			listen(501); // magic number from ngix
 		}
 
 	public:
@@ -100,10 +101,10 @@ namespace async { namespace network {
 			return impl_.accept();
 		}
 
-		template < typename AllocT, typename HandlerT >
-		void async_accept(socket_handle_t &&sck, AllocT &alloc, HandlerT &&callback)
+		template < typename HandlerT, typename AllocatorT >
+		void async_accept(std::shared_ptr<socket_handle_t> &&sck, HandlerT &&callback, const AllocatorT &allocator)
 		{
-			return impl_.async_accept(std::move(sck), alloc, std::forward<HandlerT>(callback));
+			return impl_.async_accept(std::move(sck), std::forward<HandlerT>(callback), allocator);
 		}
 	};
 }

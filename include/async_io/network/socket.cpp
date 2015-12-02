@@ -75,6 +75,10 @@ namespace async { namespace network {
 
 		// °ó¶¨µ½IOCP
 		io_.bind(reinterpret_cast<HANDLE>(socket_));
+
+		// 
+		//if( !::SetFileCompletionNotificationModes(reinterpret_cast<HANDLE>(socket_), FILE_SKIP_COMPLETION_PORT_ON_SUCCESS) )
+		//	throw service::win32_exception_t("SetFileCompletionNotificationModes");
 	}
 
 	void socket_handle_t::shutdown(int shut)
@@ -97,7 +101,7 @@ namespace async { namespace network {
 	void socket_handle_t::cancel()
 	{
 		if( !is_open() )
-			throw service::network_exception("Socket not Open");
+			return;
 		else
 			socket_provider::cancel_io(socket_);
 	}
@@ -143,7 +147,7 @@ namespace async { namespace network {
 		if( !is_open() )
 			throw service::network_exception("Socket not open");
 
-		SOCKADDR_IN serverAddr = {0};
+		SOCKADDR_IN serverAddr		= {0};
 		serverAddr.sin_family		= family;
 		serverAddr.sin_addr.s_addr	= ::htonl(addr.address());
 		serverAddr.sin_port			= ::htons(uPort);
@@ -171,7 +175,7 @@ namespace async { namespace network {
 		}
 	}
 
-	size_t socket_handle_t::read(service::mutable_buffer_t &buffer, DWORD flag)
+	std::uint32_t socket_handle_t::read(service::mutable_buffer_t &buffer, DWORD flag)
 	{
 		if( !is_open() )
 			throw service::network_exception("Socket not open");
@@ -190,7 +194,7 @@ namespace async { namespace network {
 		return dwSize;
 	}
 
-	size_t socket_handle_t::write(const service::const_buffer_t &buffer, DWORD flag)
+	std::uint32_t socket_handle_t::write(const service::const_buffer_t &buffer, DWORD flag)
 	{
 		if( !is_open() )
 			throw service::network_exception("Socket not open");
@@ -210,7 +214,7 @@ namespace async { namespace network {
 	}
 
 
-	size_t socket_handle_t::send_to(const service::const_buffer_t &buf, const SOCKADDR_IN *addr, DWORD flag)
+	std::uint32_t socket_handle_t::send_to(const service::const_buffer_t &buf, const SOCKADDR_IN *addr, DWORD flag)
 	{
 		if( !is_open() )
 			throw service::network_exception("Socket not open");
@@ -229,7 +233,7 @@ namespace async { namespace network {
 		return dwSize;
 	}
 
-	size_t socket_handle_t::recv_from(service::mutable_buffer_t &buf, SOCKADDR_IN *addr, DWORD flag)
+	std::uint32_t socket_handle_t::recv_from(service::mutable_buffer_t &buf, SOCKADDR_IN *addr, DWORD flag)
 	{
 		if( !is_open() )
 			throw service::network_exception("Socket not open");
@@ -249,6 +253,7 @@ namespace async { namespace network {
 
 		return dwSize;
 	}
+
 }
 
 }

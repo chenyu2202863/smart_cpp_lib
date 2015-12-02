@@ -9,21 +9,33 @@
 namespace stdex { namespace allocator {
 
 
-	template<std::size_t n_stack_elements>
-	class stack_storage
+	template<std::uint32_t n_stack_elements>
+	struct stack_storage_t
 	{
-	public:
+		enum { size = n_stack_elements };
+
 		typedef typename std::aligned_storage<sizeof(char), std::alignment_of<char>::value>::type storage_type;
-		stack_storage()
+		
+		std::uint32_t pos_;
+		storage_type array_[n_stack_elements];
+
+		stack_storage_t()
 			: pos_(0)
 		{
 		}
 
-		std::uint32_t pos_;
-		storage_type array_[n_stack_elements];
+		stack_storage_t(stack_storage_t &&rhs)
+			: pos_(rhs.pos_)
+		{
+			std::memmove(&array_[0], &rhs.array_[0], pos_);
+		}
+
+	private:
+		stack_storage_t(const stack_storage_t &);
+		stack_storage_t &operator=(const stack_storage_t &);
 	};
 
-	template<typename T, std::size_t n_stack_elements>
+	template<typename T, std::uint32_t n_stack_elements>
 	class stack_allocator_t
 		: public std::allocator<T>
 	{
@@ -36,34 +48,39 @@ namespace stdex { namespace allocator {
 			typedef stack_allocator_t<U, n_stack_elements> other;
 		};
 
-		stack_storage<n_stack_elements> &storage_;
+		stack_storage_t<n_stack_elements> *storage_;
 
 
-		explicit stack_allocator_t(stack_storage<n_stack_elements> &storage)
+		explicit stack_allocator_t(stack_storage_t<n_stack_elements> *storage)
 			: storage_(storage)
 		{
 		}
 
+		stack_allocator_t(stack_allocator_t &&rhs)
+			: storage_(rhs.storage_)
+		{}
+
 		template < typename U >
-		stack_allocator_t(stack_allocator_t<U, n_stack_elements> &rhs)
+		stack_allocator_t(const stack_allocator_t<U, n_stack_elements> &rhs)
 			: storage_(rhs.storage_)
 		{}
 
 		typename base_class::pointer allocate(typename base_class::size_type n_elements,
 			std::allocator<void>::const_pointer hint = 0)
 		{
-			assert(storage_.pos_ + n_elements * sizeof(base_class::value_type) <= n_stack_elements);
-			if( storage_.pos_ + n_elements * sizeof(base_class::value_type) > n_stack_elements )
+			assert(storage_->pos_ + n_elements * sizeof(base_class::value_type) <= n_stack_elements);
+			if( storage_->pos_ + n_elements * sizeof(base_class::value_type) > n_stack_elements )
 				return nullptr;
 			else
 			{
-				base_class::pointer p = reinterpret_cast<base_class::pointer>(&storage_.array_[storage_.pos_]);
-				storage_.pos_ += n_elements * sizeof(base_class::value_type);
+				base_class::pointer p = reinterpret_cast<base_class::pointer>(&storage_->array_[storage_->pos_]);
+				storage_->pos_ += n_elements * sizeof(base_class::value_type);
 				return p;
 			}
 		}
-		void deallocate(typename base_class::pointer p, typename base_class::size_type n)
+		void deallocate(typename base_class::pointer/* p*/, typename base_class::size_type/* n*/)
 		{
+			
 		}	
 	};
 
