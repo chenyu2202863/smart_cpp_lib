@@ -14,8 +14,7 @@
 
 #include <vector>
 #include <map>
-#include "../../multi_thread/lock.hpp"
-
+#include <mutex>
 
 /*
 线程安全线性容器(vector, list, deque)
@@ -45,13 +44,13 @@ namespace stdex
 		template < 
 			typename T,
 			typename C = std::vector<T>, 
-			typename S = multi_thread::critical_section
+			typename S = std::mutex
 		>
 		class sync_sequence_container_t
 		{
 		public:
 			typedef S Mutex;
-			typedef multi_thread::auto_lock_t<Mutex>	AutoLock;
+			typedef std::unique_lock<Mutex>	AutoLock;
 			typedef C Container;
 
 			typedef typename Container::value_type		value_type;
@@ -292,13 +291,13 @@ namespace stdex
 			typename K, 
 			typename V,
 			typename C = std::map<K, V>, 
-			typename S = multi_thread::critical_section
+			typename S = std::mutex
 		>
 		class sync_assoc_container_t
 		{
 		public:
 			typedef S Mutex;
-			typedef multi_thread::auto_lock_t<Mutex>	AutoLock;
+			typedef std::unique_lock<Mutex>	AutoLock;
 			typedef C Container;
 
 			typedef typename Container::key_type		key_type;
@@ -330,44 +329,10 @@ namespace stdex
 				: container_(alloc)
 			{}
 
-		private:
-			sync_assoc_container_t(const sync_assoc_container_t &);
-			sync_assoc_container_t &operator=(const sync_assoc_container_t &);
+			sync_assoc_container_t(const sync_assoc_container_t &) = delete;
+			sync_assoc_container_t &operator=(const sync_assoc_container_t &) = delete;
 
 		public:
-			iterator begin()
-			{ 
-				AutoLock lock(mutex_);
-				return container_.begin();
-			}
-			const_iterator begin() const
-			{ 
-				AutoLock lock(mutex_);
-				return container_.begin();
-			}
-			iterator end()
-			{ 
-				AutoLock lock(mutex_);
-				return container_.end();
-			}
-			const_iterator end() const
-			{ 
-				AutoLock lock(mutex_);
-				return container_.end();
-			}
-
-			Container &get_container()
-			{
-				AutoLock lock(mutex_);
-				return container_;
-			}
-
-			const Container &get_container() const
-			{
-				AutoLock lock(mutex_);
-				return container_;
-			}
-
 			size_t size() const
 			{
 				AutoLock lock(mutex_);
@@ -395,7 +360,7 @@ namespace stdex
 			const mapped_type &operator[](const key_type &key) const
 			{
 				AutoLock lock(mutex_);
-				return container_.find(key)->second;
+				return container_.at(key);
 			}
 
 			bool exsit(const key_type &key) const
@@ -404,20 +369,18 @@ namespace stdex
 				return container_.find(key) != container_.end();
 			}
 
+			void insert(key_type &&key, mapped_type &&val)
+			{
+				AutoLock lock(mutex_);
+				container_.emplace(std::move(key), std::move(val));
+			}
+
 			void insert(const key_type &key, const mapped_type &val)
 			{
 				AutoLock lock(mutex_);
 				container_.insert(std::make_pair(key, val));
 			}
 
-			/**
-			* @brief 遍历整个容器
-			* @param <op> <回调函数参数>
-			* @exception <不会抛出任何异常>
-			* @return <无>
-			* @note <op是接受一个参数的回调函数>
-			* @remarks <>
-			*/
 			template < typename OP >
 			void for_each(const OP &op) const
 			{
@@ -432,28 +395,7 @@ namespace stdex
 				std::for_each(container_.begin(), container_.end(), op);
 			}
 
-			/**
-			* @brief 查找容器中第一个满足op的元素
-			* @param <op> <回调函数参数，返回bool，接受一个const value_type &参数>
-			* @exception <不会抛出任何异常>
-			* @return <元素所在迭代器>
-			* @note <如果满足op，则返回元素迭代器，如果不满足op，则返回无效迭代器>
-			* @remarks <无>
-			*/
-			template < typename OP >
-			iterator find_if(const OP &op)
-			{
-				AutoLock lock(mutex_);
-				return std::find_if(container_.begin(), container_.end(), op);
-			}
-
-			template < typename OP >
-			const_iterator find_if(const OP &op) const
-			{
-				AutoLock lock(mutex_);
-				return std::find_if(container_.begin(), container_.end(), op);
-			}
-
+		
 			/**
 			* @brief 如果在容器中找不到key，则执行op
 			* @param <key> <key关键字>
@@ -505,13 +447,6 @@ namespace stdex
 				AutoLock lock(mutex_);
 
 				container_.erase(key);
-			}
-
-			void erase(const const_iterator &iter)
-			{
-				AutoLock lock(mutex_);
-
-				container_.erase(iter);
 			}
 		};
 

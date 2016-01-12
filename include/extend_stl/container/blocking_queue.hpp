@@ -4,20 +4,21 @@
 
 /** @blocking_queue.hpp
 *
-* @author <陈煜>
+* @author <鲁脗矛脧>
 * [@author <chenyu2202863@yahoo.com.cn>]
 * @date <2012/10/08>
 * @version <0.1>
 *
-* 生产者消费者容器
+* 脡煤虏煤脮脽脧没路脩脮脽脠脻脝梅
 */
 
 #include <mutex>
 #include <queue>
+#include <condition_variable>
 #include <cassert>
 
 /*
-阻塞队列，适用于生产者消费者
+脳猫脠没露脫脕脨拢卢脢脢脫脙脫脷脡煤虏煤脮脽脧没路脩脮脽
 
 	block_queue_t
 
@@ -28,10 +29,10 @@ namespace stdex
 	{
 		/**
 		* @class <sync_sequence_container_t>
-		* @brief 生产者消费者容器，接口与stl容器类似，采用FIFO算法
+		* @brief 脡煤虏煤脮脽脧没路脩脮脽脠脻脝梅拢卢陆脫驴脷脫毛stl脠脻脝梅脌脿脣脝拢卢虏脡脫脙FIFO脣茫路篓
 		*
-		* T 值类型
-		* A 内存分配器，在高性能的地方需要自己提供内存分配器
+		* T 脰碌脌脿脨脥
+		* A 脛脷麓忙路脰脜盲脝梅拢卢脭脷赂脽脨脭脛脺碌脛碌脴路陆脨猫脪陋脳脭录潞脤谩鹿漏脛脷麓忙路脰脜盲脝梅
 		*/
 
 		template< typename T, typename A = std::allocator<T> >
@@ -51,12 +52,12 @@ namespace stdex
 			{} 
 
 			/**
-			* @brief 传入一个allocator
-			* @param <alloc> <allocator对象>
-			* @exception <不会抛出任何异常>
-			* @return <无>
-			* @note <无>
-			* @remarks <提高内存分配效率>
+			* @brief 麓芦脠毛脪禄赂枚allocator
+			* @param <alloc> <allocator露脭脧贸>
+			* @exception <虏禄禄谩脜脳鲁枚脠脦潞脦脪矛鲁拢>
+			* @return <脦脼>
+			* @note <脦脼>
+			* @remarks <脤谩赂脽脛脷麓忙路脰脜盲脨搂脗脢>
 			*/
 			explicit blocking_queue_t(A &allocator)
 				: queue_(allocator)
@@ -67,12 +68,12 @@ namespace stdex
 
 		public:
 			/**
-			* @brief 把数据压入队列，生产一个数据
-			* @param <x> <压入数据>
-			* @exception <不会抛出任何异常>
-			* @return <无>
-			* @note <线程安全，可并发多次调用>
-			* @remarks <无>
+			* @brief 掳脩脢媒戮脻脩鹿脠毛露脫脕脨拢卢脡煤虏煤脪禄赂枚脢媒戮脻
+			* @param <x> <脩鹿脠毛脢媒戮脻>
+			* @exception <虏禄禄谩脜脳鲁枚脠脦潞脦脪矛鲁拢>
+			* @return <脦脼>
+			* @note <脧脽鲁脤掳虏脠芦拢卢驴脡虏垄路垄露脿麓脦碌梅脫脙>
+			* @remarks <脦脼>
 			*/
 			void put(T &&x)
 			{
@@ -95,12 +96,12 @@ namespace stdex
 			}
 
 			/**
-			* @brief 把数据弹出队列，消费一个数据
-			* @param <无>
-			* @exception <不会抛出任何异常>
-			* @return <弹出一个数据>
-			* @note <线程安全，可并发多次调用>
-			* @remarks <无>
+			* @brief 掳脩脢媒戮脻碌炉鲁枚露脫脕脨拢卢脧没路脩脪禄赂枚脢媒戮脻
+			* @param <脦脼>
+			* @exception <虏禄禄谩脜脳鲁枚脠脦潞脦脪矛鲁拢>
+			* @return <碌炉鲁枚脪禄赂枚脢媒戮脻>
+			* @note <脧脽鲁脤掳虏脠芦拢卢驴脡虏垄路垄露脿麓脦碌梅脫脙>
+			* @remarks <脦脼>
 			*/
 			T get()
 			{
@@ -132,12 +133,12 @@ namespace stdex
 			}
 
 			/**
-			* @brief 遍历队列
-			* @param <func> <func调用约定为void(const T &val)>
-			* @exception <不会抛出任何异常>
-			* @return <无>
-			* @note <无>
-			* @remarks <无>
+			* @brief 卤茅脌煤露脫脕脨
+			* @param <func> <func碌梅脫脙脭录露篓脦陋void(const T &val)>
+			* @exception <虏禄禄谩脜脳鲁枚脠脦潞脦脪矛鲁拢>
+			* @return <脦脼>
+			* @note <脦脼>
+			* @remarks <脦脼>
 			*/
 			template < typename FuncT >
 			void for_each(const FuncT &func)
