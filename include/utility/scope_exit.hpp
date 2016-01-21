@@ -17,14 +17,19 @@
 
 namespace utility
 {
-	template < typename D >
-	auto make_scope_exit(D &&d)
+	struct deletor_t
 	{
-		auto deletor = [](D *p)
+		template < typename T >
+		void operator()(T *p)
 		{
 			(*p)();
-		};
-		return std::unique_ptr<D, decltype(deletor)>(&d, deletor);
+		}
+	};
+	
+	template < typename D >
+	auto make_scope_exit(D &&d)->std::unique_ptr<D, deletor_t>
+	{
+		return std::unique_ptr<D, deletor_t>(&d, deletor_t());
 	}
 }
 

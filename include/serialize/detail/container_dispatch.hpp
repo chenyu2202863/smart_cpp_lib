@@ -181,6 +181,7 @@ namespace serialize { namespace detail {
 		template < typename StreamT >
 		static void push(StreamT &io, const value_type& val)
 		{
+			io << val.second;
 			io.push_pointer(val.first, val.second);
 		}
 
