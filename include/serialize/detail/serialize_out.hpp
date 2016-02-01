@@ -11,14 +11,14 @@ namespace serialize { namespace detail {
 
 	template <
 		typename CharT,
-		template < typename > class BufferT
+		typename BufferT
 	>
 	struct empty_out_t
 	{
 		typedef std::false_type		is_need_out_t; 
 		typedef std::false_type		is_need_length_t;
 
-		empty_out_t(BufferT<CharT> &buffer)
+		empty_out_t(BufferT &buffer)
 		{}
 
 		template < typename T >
@@ -39,11 +39,11 @@ namespace serialize { namespace detail {
 
 	template <
 		typename CharT,
-		template < typename > class BufferT
+		typename BufferT
 	>
 	class binary_out_t
 	{
-		typedef BufferT<CharT>		buffer_t;
+		typedef BufferT				buffer_t;
 
 	public:
 		typedef std::true_type		is_need_out_t; 
